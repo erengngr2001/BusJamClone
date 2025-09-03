@@ -72,7 +72,8 @@ public class GridSpawner : MonoBehaviour
         {
             for (int y = 0; y < level.height; y++)
             {
-                passengerSpawnCoords.Add(new Vector2Int(x, y));
+                if (level.GetCell(x, y) == CellType.ColorPassenger)
+                    passengerSpawnCoords.Add(new Vector2Int(x, y));
             }
         }
     }
@@ -157,38 +158,4 @@ public class GridSpawner : MonoBehaviour
         }
     }
 
-
-
-
-
-
-
-    //void Start()
-    //{
-    //    SpawnGrid();
-    //}
-
-    //public void SpawnGrid()
-    //{
-    //    if (level == null || passengerPrefab == null) return;
-
-    //    int w = Mathf.Max(0, level.width);
-    //    int h = Mathf.Max(0, level.height);
-    //    float cs = Mathf.Max(0.0001f, level.cellSize);
-
-    //    // grid centered on this object's position, aligned to local right/forward
-    //    Vector3 right = transform.right;
-    //    Vector3 forward = transform.forward;
-    //    Vector3 center = transform.position;
-    //    Vector3 origin = center - right * ((w - 1) * cs * 0.5f) - forward * ((h - 1) * cs * 0.5f);
-
-    //    for (int y = 0; y < h; y++)
-    //    {
-    //        for (int x = 0; x < w; x++)
-    //        {
-    //            Vector3 pos = origin + right * (x * cs) + forward * (y * cs);
-    //            Instantiate(passengerPrefab, pos, Quaternion.identity, transform);
-    //        }
-    //    }
-    //}
 }
