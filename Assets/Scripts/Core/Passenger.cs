@@ -9,6 +9,13 @@ public class Passenger : MonoBehaviour
     public Vector2Int gridCoord = new Vector2Int(-1,-1);
     //public System.Action<Passenger> onPassengerClicked;
 
+    // last computed path (grid coordinates start..goal). Null if unreachable or not computed.
+    public List<Vector2Int> currentPath = null;
+
+    [Header("Events")]
+    // called by GridSpawner when this passenger is clicked
+    public System.Action<Passenger> onClickedByPlayer;
+
     // Input Actions (created in code for simplicity)
     private InputAction pointerPosAction;
     private InputAction clickAction;
@@ -85,6 +92,8 @@ public class Passenger : MonoBehaviour
 
     private void HandleClick()
     {
+        onClickedByPlayer?.Invoke(this);
+
         if (isReachable)
         {
             Debug.Log($"[Passenger] Clicked reachable passenger at ({gridCoord.x},{gridCoord.y}) — {gameObject.name}");
@@ -101,6 +110,12 @@ public class Passenger : MonoBehaviour
     {
         gridCoord.x = x;
         gridCoord.y = y;
+    }
+
+    // Called by GridSpawner to store the path (may be null)
+    public void SetPath(List<Vector2Int> path)
+    {
+        currentPath = path;
     }
 
 }

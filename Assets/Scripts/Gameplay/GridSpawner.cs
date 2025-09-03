@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 
 public class GridSpawner : MonoBehaviour
@@ -110,7 +111,11 @@ public class GridSpawner : MonoBehaviour
                 Vector3 spawnPos = cell.worldPos + new Vector3(0f, .55f, 0f);
                 GameObject passengerInstance = Instantiate(passengerPrefab, spawnPos, Quaternion.identity, passengerParent);
                 passengerInstance.name = $"Passenger_({coord.x},{coord.y})";
-                passengerInstance.GetComponent<Passenger>()?.InitializeGridCoord(coord.x, coord.y);
+                //passengerInstance.GetComponent<Passenger>()?.InitializeGridCoord(coord.x, coord.y);
+                Passenger psg = passengerInstance.GetComponent<Passenger>();
+                psg?.InitializeGridCoord(coord.x, coord.y);
+                if (psg != null)
+                    psg.onClickedByPlayer = OnPassengerClicked;
                 cell.SetOccupyingObject(passengerInstance); // Mark the cell as occupied
             }
             else
@@ -145,6 +150,50 @@ public class GridSpawner : MonoBehaviour
             return _grid[x, y];
         }
         return null;
+    }
+
+    // Event triggered by Passenger when clicked
+    public void OnPassengerClicked(Passenger clicked)
+    {
+        Debug.Log($"[GridSpawner] Passenger clicked at ({clicked.gridCoord.x},{clicked.gridCoord.y}). Computing paths for all passengers...");
+        ComputePathsForAllPassengers();
+    }
+
+    void ComputePathsForAllPassengers()
+    {
+        int w = level.width;
+        int h = level.height;
+        int frontY = h - 1;
+
+        Transform parent = transform.Find("Passengers");
+        if (parent == null) return;
+
+        for (int i = 0; i < parent.childCount; i++)
+        {
+            GameObject passengerObj = parent.GetChild(i).gameObject;
+            Passenger passenger = passengerObj.GetComponent<Passenger>();
+            if (passenger == null) continue;
+
+            List<Vector2Int> shortestPath = FindPathAStar(passenger.gridCoord.x, passenger.gridCoord.y, frontY);
+            bool isReachable = shortestPath != null && shortestPath.Count > 0;
+            passenger.isReachable = isReachable;
+            passenger.SetPath(shortestPath);
+            Debug.Log($"[GridSpawner] Passenger ({passenger.gridCoord.x},{passenger.gridCoord.y}) reachable={passenger.isReachable} pathLen={(shortestPath == null ? 0 : shortestPath.Count)}");
+        }
+    }
+
+    // WILL BE IMPLEMENTED TOMORROW - placeholder for A* pathfinding
+    List<Vector2Int> FindPathAStar(int startX, int startY, int targetY)
+    {
+        // A* pathfinding implementation would go here
+        // This is a placeholder for the actual pathfinding logic
+        return new List<Vector2Int>();
+    }
+
+    // Manhattan-style heuristic: distance to nearest front row cell (admissible)
+    private int Heuristic(int x, int y, int frontY)
+    {
+        return Mathf.Abs(y - frontY);
     }
 
     private void OnDrawGizmos()
