@@ -242,6 +242,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f21bf84664f1cff4f80f47c9a8c32747, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  shift: {x: 0, y: 0, z: -10}
   level: {fileID: 11400000, guid: fb765716c23c9df42b7a072a0b287fd3, type: 2}
   passengerPrefab: {fileID: 8526269103575511261, guid: 43fe6109666ed9146a94879e2ba2d3ac, type: 3}
   passengerSpawnCoords: []

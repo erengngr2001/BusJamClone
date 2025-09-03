@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class GridSpawner : MonoBehaviour
 {
+    public Vector3 shift = new Vector3(0f, 0f, -2f); // to center of cell
+
     public LevelData level;            // assign the LevelData asset
     public GameObject passengerPrefab; // assign passenger prefab
     public List<Vector2Int> passengerSpawnCoords;
@@ -132,7 +134,8 @@ public class GridSpawner : MonoBehaviour
         int h = level.height;
 
         Vector3 origin = center - right * ((w - 1) * cs * 0.5f) - forward * ((h - 1) * cs * 0.5f);
-        return origin + right * (x * cs) + forward * (y * cs);
+        
+        return origin + right * (x * cs) + forward * (y * cs) + shift;
     }
 
     public GridCell GetGridCell(int x, int y)
