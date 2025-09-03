@@ -10,6 +10,7 @@ public class LevelDataEditor : Editor
     private SerializedProperty heightProp;
     private SerializedProperty cellSizeProp;
     private SerializedProperty cellsProp;
+    private SerializedProperty countdownProp;
 
     private void OnEnable()
     {
@@ -18,6 +19,7 @@ public class LevelDataEditor : Editor
         heightProp = serializedObject.FindProperty("height");
         cellSizeProp = serializedObject.FindProperty("cellSize");
         cellsProp = serializedObject.FindProperty("cells");
+        countdownProp = serializedObject.FindProperty("countdown");
 
         // ensure cells list is valid on enable
         level.ResizeCells();
@@ -32,6 +34,7 @@ public class LevelDataEditor : Editor
         EditorGUILayout.PropertyField(widthProp);
         EditorGUILayout.PropertyField(heightProp);
         EditorGUILayout.PropertyField(cellSizeProp);
+        EditorGUILayout.PropertyField(countdownProp);
         if (EditorGUI.EndChangeCheck())
         {
             // Apply changes to serialized props first
