@@ -1,0 +1,106 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.InputSystem;
+
+public class Passenger : MonoBehaviour
+{
+    public bool isReachable = true;
+    public Vector2Int gridCoord = new Vector2Int(-1,-1);
+    //public System.Action<Passenger> onPassengerClicked;
+
+    // Input Actions (created in code for simplicity)
+    private InputAction pointerPosAction;
+    private InputAction clickAction;
+
+    private void Awake()
+    {
+        if (this.GetComponent<Collider>() == null)
+        {
+            var box = gameObject.AddComponent<CapsuleCollider>();
+        }
+
+        // Create pointer position action (Vector2 screen pos)
+        pointerPosAction = new InputAction(
+            name: "PointerPosition",
+            type: InputActionType.Value,
+            binding: "<Pointer>/position"
+        );
+
+        // Create click/press action (button)
+        clickAction = new InputAction(
+            name: "PointerPress",
+            type: InputActionType.Button,
+            binding: "<Pointer>/press"
+        );
+
+        // When a press happens, we'll check if it hit this passenger
+        clickAction.performed += OnClickPerformed;
+    }
+
+    private void OnEnable()
+    {
+        pointerPosAction.Enable();
+        clickAction.Enable();
+    }
+
+    private void OnDisable()
+    {
+        clickAction.performed -= OnClickPerformed;
+        clickAction.Disable();
+        pointerPosAction.Disable();
+    }
+
+    private void OnDestroy()
+    {
+        // Clean up
+        pointerPosAction.Dispose();
+        clickAction.Dispose();
+    }
+
+    // Called when any pointer press occurs. We read the pointer position
+    // and raycast — if the raycast hit belongs to this GameObject, we handle it.
+    private void OnClickPerformed(InputAction.CallbackContext ctx)
+    {
+        // Read screen position from pointer action
+        Vector2 screenPos = pointerPosAction.ReadValue<Vector2>();
+
+        Camera cam = Camera.main;
+        if (cam == null)
+        {
+            Debug.LogWarning("[Passenger] Camera.main not found. Tag your camera as MainCamera.");
+            return;
+        }
+
+        Ray ray = cam.ScreenPointToRay(screenPos);
+        if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity))
+        {
+            // If the hit object is this passenger (or a child), treat as click
+            if (hit.collider != null && (hit.collider.gameObject == gameObject || hit.collider.transform.IsChildOf(transform)))
+            {
+                HandleClick();
+            }
+        }
+    }
+
+    private void HandleClick()
+    {
+        if (isReachable)
+        {
+            Debug.Log($"[Passenger] Clicked reachable passenger at ({gridCoord.x},{gridCoord.y}) — {gameObject.name}");
+            // Add any further behavior here (events, notify manager, play animation, etc.)
+        }
+        else
+        {
+            Debug.Log($"[Passenger] Clicked passenger at ({gridCoord.x},{gridCoord.y}) but NOT reachable.");
+        }
+    }
+
+    // Optional helper you can call from GridSpawner when instantiating
+    public void InitializeGridCoord(int x, int y)
+    {
+        gridCoord.x = x;
+        gridCoord.y = y;
+    }
+
+}
