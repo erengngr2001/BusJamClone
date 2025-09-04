@@ -15,8 +15,9 @@ public class GridSpawner : MonoBehaviour
 
     // SINGLETON
     public static GridSpawner Instance { get; private set; }
+    private int passengerCount = 0;
 
-    private void Awake()
+private void Awake()
     {
         if (Instance != null && Instance != this)
         {
@@ -38,6 +39,7 @@ public class GridSpawner : MonoBehaviour
             PreparePassengerList();
         }
         SpawnPassengers();
+        //Debug.Log($"[GridSpawner] Spawned {passengerCount} passenger groups.");
     }
 
     private void GenerateGridData()
@@ -70,13 +72,17 @@ public class GridSpawner : MonoBehaviour
             return;
         }
         passengerSpawnCoords.Clear();
+        passengerCount = 0;
 
         for (int x = 0; x < level.width; x++)
         {
             for (int y = 0; y < level.height; y++)
             {
                 if (level.GetCell(x, y) == CellType.ColorPassenger)
+                {
                     passengerSpawnCoords.Add(new Vector2Int(x, y));
+                    passengerCount++;
+                }
             }
         }
     }
@@ -100,6 +106,7 @@ public class GridSpawner : MonoBehaviour
         {
             passengerParent = new GameObject("Passengers").transform;
             passengerParent.SetParent(this.transform);
+            //passengerCount++;
         }
 
         foreach (Vector2Int coord in passengerSpawnCoords)
@@ -155,7 +162,7 @@ public class GridSpawner : MonoBehaviour
     // Event triggered by Passenger when clicked
     public void OnPassengerClicked(Passenger clicked)
     {
-        Debug.Log($"[GridSpawner] Passenger clicked at ({clicked.gridCoord.x},{clicked.gridCoord.y}). Computing paths for all passengers...");
+        //Debug.Log($"[GridSpawner] Passenger clicked at ({clicked.gridCoord.x},{clicked.gridCoord.y}). Computing paths for all passengers...");
         ComputePathsForAllPassengers();
     }
 
@@ -176,12 +183,31 @@ public class GridSpawner : MonoBehaviour
 
             List<Vector2Int> shortestPath = Pathfinding.FindPathAStar(level, passenger.gridCoord.x, passenger.gridCoord.y, frontY);
             bool isReachable = shortestPath != null && shortestPath.Count > 0;
+
+            //// Debug test: print path for a specific passenger
+            //if (isReachable && passenger.gridCoord.x == 3 && passenger.gridCoord.y == 4)
+            //    foreach (Vector2Int p in shortestPath)
+            //        Debug.Log(p);
+
             passenger.isReachable = isReachable;
             passenger.SetPath(shortestPath);
-            Debug.Log($"[GridSpawner] Passenger ({passenger.gridCoord.x},{passenger.gridCoord.y}) reachable={passenger.isReachable} pathLen={(shortestPath == null ? 0 : shortestPath.Count)}");
+            //Debug.Log($"[GridSpawner] Passenger ({passenger.gridCoord.x},{passenger.gridCoord.y}) reachable={passenger.isReachable} pathLen={(shortestPath == null ? 0 : shortestPath.Count)}");
         }
     }
 
+    public int GetPassengerCount()
+    {
+        return passengerCount;
+    }
+
+    // Heuristic static walkability check: treat cells that contain obstacle/pipe/wall in their enum name as blocked
+    public bool IsCellStaticallyWalkable(int x, int y)
+    {
+        var ct = level.GetCell(x, y);
+        if (ct == CellType.Obstacle || ct == CellType.Pipe)
+            return false;
+        return true;
+    }
 
     private void OnDrawGizmos()
     {

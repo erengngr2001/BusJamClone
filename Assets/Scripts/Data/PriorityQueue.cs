@@ -1,6 +1,4 @@
-using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
 
 public class PriorityQueue<T>
 {
@@ -61,7 +59,7 @@ public class PriorityQueue<T>
     public void Clear()
     {
         _heap.Clear();
-        _seqCounter = 0;
+        //_seqCounter = 0;
     }
 
     private void Swap(int i, int j)
