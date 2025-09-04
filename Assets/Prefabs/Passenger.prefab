@@ -64,12 +64,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 089cbff732e3434478bb973f086a1728, type: 2}
-  - {fileID: 2100000, guid: 90a04fe63f21cec42a7847603580b897, type: 2}
-  - {fileID: 2100000, guid: db762415bda92414aab3e0e5e185413a, type: 2}
-  - {fileID: 2100000, guid: 61962ebfe572d4043962afee21f22c9f, type: 2}
-  - {fileID: 2100000, guid: 9cdedc2dc2182324795948ae9adfa994, type: 2}
-  - {fileID: 2100000, guid: 46a3aab0bcd82a14abdcdb0fff97eb83, type: 2}
+  - {fileID: 2100000, guid: 6f22c05ffc986e446b47642c5f4b8fdb, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -153,5 +148,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab111b7300a3e194296acb6d9377dbdd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  material: {fileID: 2100000, guid: 7628882d961b76441a891388e8b33338, type: 2}
   isReachable: 1
   gridCoord: {x: -1, y: -1}
+  currentPath: []

@@ -1,10 +1,15 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
+[RequireComponent(typeof(PassengerColorManager))]
 public class Passenger : MonoBehaviour
 {
+    //[Header("Passenger Info")]
+    //public Material material;
+
     public bool isReachable = true;
     public Vector2Int gridCoord = new Vector2Int(-1,-1);
     //public System.Action<Passenger> onPassengerClicked;
@@ -14,7 +19,10 @@ public class Passenger : MonoBehaviour
 
     [Header("Events")]
     // called by GridSpawner when this passenger is clicked
-    public System.Action<Passenger> onClickedByPlayer;
+    public Action<Passenger> onClickedByPlayer;
+
+    // reference to color manager (cached)
+    private PassengerColorManager colorManager;
 
     // Input Actions (created in code for simplicity)
     private InputAction pointerPosAction;
@@ -26,6 +34,13 @@ public class Passenger : MonoBehaviour
         {
             var box = gameObject.AddComponent<CapsuleCollider>();
         }
+
+        colorManager = GetComponent<PassengerColorManager>();
+        if (colorManager == null)
+            colorManager = gameObject.AddComponent<PassengerColorManager>();
+
+        // ensure initial visuals match initial isReachable
+        colorManager.ApplyReachability(isReachable);
 
         // Create pointer position action (Vector2 screen pos)
         pointerPosAction = new InputAction(
@@ -119,7 +134,19 @@ public class Passenger : MonoBehaviour
 
     public void SetReachable(bool isReachable)
     {
+        if (this.isReachable == isReachable) return;
         this.isReachable = isReachable;
+
+        // delegate visuals to the manager
+        if (colorManager != null)
+            colorManager.ApplyReachability(isReachable);
+    }
+
+    // Optional: immediate visual set without state-change debounce
+    public void SetReachableImmediate(bool isReachable)
+    {
+        this.isReachable = isReachable;
+        if (colorManager != null) colorManager.ApplyReachability(isReachable);
     }
 
 }

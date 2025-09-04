@@ -12,6 +12,7 @@ public class GridSpawner : MonoBehaviour
 
     // Grid data
     private GridCell[,] _grid;
+    private GridCell[] _waitingLine;
 
     // SINGLETON
     public static GridSpawner Instance { get; private set; }
@@ -40,6 +41,7 @@ private void Awake()
         }
         SpawnPassengers();
         //Debug.Log($"[GridSpawner] Spawned {passengerCount} passenger groups.");
+        ComputePathsForAllPassengers();
     }
 
     private void GenerateGridData()
@@ -51,6 +53,7 @@ private void Awake()
         }
 
         _grid = new GridCell[level.width, level.height];
+        _waitingLine = new GridCell[5]; // Passengers waiting for the bus
 
         for (int y = 0; y < level.height; y++)
         {
@@ -189,8 +192,10 @@ private void Awake()
             //    foreach (Vector2Int p in shortestPath)
             //        Debug.Log(p);
 
-            passenger.isReachable = isReachable;
+            //passenger.isReachable = isReachable;
+            passenger.SetReachable(isReachable);
             passenger.SetPath(shortestPath);
+            //passenger.ChangeMaterialOnReach(isReachable);
             //Debug.Log($"[GridSpawner] Passenger ({passenger.gridCoord.x},{passenger.gridCoord.y}) reachable={passenger.isReachable} pathLen={(shortestPath == null ? 0 : shortestPath.Count)}");
         }
     }
