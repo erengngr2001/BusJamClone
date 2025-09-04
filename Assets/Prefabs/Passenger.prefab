@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 2365444272632665458}
   - component: {fileID: 1661555598947004535}
   - component: {fileID: 3188702653796800943}
+  - component: {fileID: 1655931845980223286}
   m_Layer: 0
   m_Name: Passenger
   m_TagString: Untagged
@@ -148,7 +149,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab111b7300a3e194296acb6d9377dbdd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  material: {fileID: 2100000, guid: 7628882d961b76441a891388e8b33338, type: 2}
   isReachable: 1
   gridCoord: {x: -1, y: -1}
   currentPath: []
+--- !u!114 &1655931845980223286
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8526269103575511261}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7fd43c4698908642b11df367dd288ac, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  unreachableColorMultiplier: 0.45
+  reachableColorMultiplier: 1
+  reachableSmoothness: 0.5
+  unreachableSmoothness: 0

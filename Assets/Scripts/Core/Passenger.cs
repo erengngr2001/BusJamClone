@@ -7,8 +7,7 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(PassengerColorManager))]
 public class Passenger : MonoBehaviour
 {
-    //[Header("Passenger Info")]
-    //public Material material;
+    private bool _interactable = true;
 
     public bool isReachable = true;
     public Vector2Int gridCoord = new Vector2Int(-1,-1);
@@ -107,17 +106,13 @@ public class Passenger : MonoBehaviour
 
     private void HandleClick()
     {
+        if (!_interactable) return;
         onClickedByPlayer?.Invoke(this);
+    }
 
-        //if (isReachable)
-        //{
-        //    Debug.Log($"[Passenger] Clicked reachable passenger at ({gridCoord.x},{gridCoord.y}) — {gameObject.name}");
-        //    // Add any further behavior here (events, notify manager, play animation, etc.)
-        //}
-        //else
-        //{
-        //    Debug.Log($"[Passenger] Clicked passenger at ({gridCoord.x},{gridCoord.y}) but NOT reachable.");
-        //}
+    public void SetInteractable(bool v)
+    {
+        _interactable = v;
     }
 
     public void InitializeGridCoord(int x, int y)

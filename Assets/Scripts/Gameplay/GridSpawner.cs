@@ -1,9 +1,20 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 
+// Waiting-slot small container
+[Serializable]
+public class WaitingSlot
+{
+    public GridCell slotCell;
+    public GameObject placeholder; // visible "empty slot" object
+    public GameObject occupant;    // the actual passenger moved here (null if empty)
+}
+
 public class GridSpawner : MonoBehaviour
 {
+    const int WAITING_SIZE = 5;
     public Vector3 shift = new Vector3(0f, 0f, -2f); // to center of cell
 
     public LevelData level;            // assign the LevelData asset
@@ -12,8 +23,11 @@ public class GridSpawner : MonoBehaviour
 
     // Grid data
     private GridCell[,] _grid;
-    private GridCell[] _waitingLine;
+
+    // Waiting line data
+    private WaitingSlot[] _waitingSlots;
     private int _waitingLineCount = 0;
+    private Transform _waitingParent;
 
     // SINGLETON
     public static GridSpawner Instance { get; private set; }
@@ -31,6 +45,7 @@ private void Awake()
             if (passengerSpawnCoords == null)
                 passengerSpawnCoords = new List<Vector2Int>();
             GenerateGridData();
+            GenerateWaitingLine();
         }
     }
 
@@ -54,7 +69,6 @@ private void Awake()
         }
 
         _grid = new GridCell[level.width, level.height];
-        _waitingLine = new GridCell[5]; // Passengers waiting for the bus
 
         for (int y = 0; y < level.height; y++)
         {
@@ -66,6 +80,43 @@ private void Awake()
         }
         Debug.Log($"Grid data generated for a {level.width}x{level.height} grid.");
 
+    }
+
+    private void GenerateWaitingLine()
+    {
+        _waitingSlots = new WaitingSlot[WAITING_SIZE];
+
+        // Parent to keep hierarchy tidy
+        _waitingParent = transform.Find("WaitingLine");
+        if (_waitingParent == null)
+        {
+            _waitingParent = new GameObject("WaitingLine").transform;
+            _waitingParent.SetParent(transform);
+        }
+
+        for (int i = 0; i < WAITING_SIZE; i++)
+        {
+            Vector3 pos = transform.position 
+                + transform.forward * (level.cellSize * (level.height / 2 + 1)) 
+                + transform.right * (level.cellSize * (i - WAITING_SIZE / 2)) 
+                + new Vector3(0f, 0f, level.cellSize) 
+                + shift;
+
+            var slot = new WaitingSlot();
+            slot.slotCell = new GridCell(-1, -1, pos);
+
+            GameObject placeholder = new GameObject($"WaitingSlot_{i}");
+            placeholder.transform.SetParent(_waitingParent, true);
+            placeholder.transform.position = pos + new Vector3(0f, .55f, 0f);
+            slot.placeholder = placeholder;
+            slot.slotCell.SetOccupyingObject(placeholder);
+
+            slot.occupant = null; // initially empty
+            _waitingSlots[i] = slot;
+
+        }
+        _waitingLineCount = 0;
+        Debug.Log("Waiting line initialized with WAITING_SIZE slots.");
     }
 
     public void PreparePassengerList()
@@ -110,7 +161,6 @@ private void Awake()
         {
             passengerParent = new GameObject("Passengers").transform;
             passengerParent.SetParent(this.transform);
-            //passengerCount++;
         }
 
         foreach (Vector2Int coord in passengerSpawnCoords)
@@ -122,7 +172,7 @@ private void Awake()
                 Vector3 spawnPos = cell.worldPos + new Vector3(0f, .55f, 0f);
                 GameObject passengerInstance = Instantiate(passengerPrefab, spawnPos, Quaternion.identity, passengerParent);
                 passengerInstance.name = $"Passenger_({coord.x},{coord.y})";
-                //passengerInstance.GetComponent<Passenger>()?.InitializeGridCoord(coord.x, coord.y);
+
                 Passenger psg = passengerInstance.GetComponent<Passenger>();
                 psg?.InitializeGridCoord(coord.x, coord.y);
                 if (psg != null)
@@ -166,13 +216,11 @@ private void Awake()
     // Event triggered by Passenger when clicked
     public void OnPassengerClicked(Passenger clicked)
     {
-        //Debug.Log($"[GridSpawner] Passenger clicked at ({clicked.gridCoord.x},{clicked.gridCoord.y}). Computing paths for all passengers...");
-        //ComputePathsForAllPassengers();
         if (clicked.isReachable)
         {
             // Further actions for reachable passenger can be added here
             Debug.Log($"[GridSpawner] Clicked reachable passenger at ({clicked.gridCoord.x},{clicked.gridCoord.y}).");
-            if (_waitingLineCount == 5)
+            if (_waitingLineCount >= _waitingSlots.Length)
             {
                 Debug.Log("GAME OVER - LOOOOSEEEERRRRR");
                 return;
@@ -180,25 +228,55 @@ private void Awake()
             else
             {
                 Debug.Log("Passenger added to waiting line.");
-                for (int i = 0; i < _waitingLine.Length; i++)
-                {
-                    if (_waitingLine[i] == null)
-                    {
-                        GridCell cell = GetGridCell(clicked.gridCoord.x, clicked.gridCoord.y);
-                        if (cell == null)
-                        {
-                            Debug.LogWarning("[GridSpawner] Tried to add to waiting line but cell is null.");
-                            return;
-                        }
 
-                        _waitingLine[i] = cell;
-                        _waitingLineCount++;
-                        cell.ClearOccupyingObject();
-                        Destroy(clicked.gameObject);
+                // find first empty slot
+                int slotIndex = -1;
+
+                for (int i = 0; i < _waitingSlots.Length; i++)
+                {
+                    if (_waitingSlots[i].occupant == null)
+                    {
+                        slotIndex = i;
                         break;
                     }
                 }
+                if (slotIndex == -1)
+                {
+                    Debug.LogWarning("[GridSpawner] No empty waiting slot found despite count check.");
+                    return;
+                }
+
+                WaitingSlot slot = _waitingSlots[slotIndex];
+
+                // Clear original grid cell occupancy
+                GridCell originalCell = GetGridCell(clicked.gridCoord.x, clicked.gridCoord.y);
+                if (originalCell != null)
+                {
+                    originalCell.ClearOccupyingObject();
+                }
+
+                // Move passenger GameObject to waiting slot (no instantiate/destroy)
+                clicked.transform.SetParent(_waitingParent, true);
+                clicked.transform.position = slot.slotCell.worldPos + new Vector3(0f, .55f, 0f);
+
+                // mark passenger as non-interactive and mark its gridCoord as "off-grid"
+                clicked.SetInteractable(false);
+                clicked.SetReachableImmediate(true); 
+                clicked.InitializeGridCoord(-1, -1);
+
+                // update slot bookkeeping
+                slot.occupant = clicked.gameObject;
+                if (slot.placeholder != null) slot.placeholder.SetActive(false);
+                slot.slotCell.SetOccupyingObject(clicked.gameObject);
+
+                _waitingSlots[slotIndex] = slot;
+                _waitingLineCount++;
+
+                Debug.Log($"Passenger moved to waiting slot {slotIndex}. _waitingLineCount={_waitingLineCount}");
+
+                // Recompute paths for remaining passengers (passengers parent only)
                 ComputePathsForAllPassengers();
+
             }
         }
         else
@@ -225,15 +303,8 @@ private void Awake()
             List<Vector2Int> shortestPath = Pathfinding.FindPathAStar(level, passenger.gridCoord.x, passenger.gridCoord.y, frontY);
             bool isReachable = shortestPath != null && shortestPath.Count > 0;
 
-            //// Debug test: print path for a specific passenger
-            //if (isReachable && passenger.gridCoord.x == 3 && passenger.gridCoord.y == 4)
-            //    foreach (Vector2Int p in shortestPath)
-            //        Debug.Log(p);
-
-            //passenger.isReachable = isReachable;
             passenger.SetReachable(isReachable);
             passenger.SetPath(shortestPath);
-            //passenger.ChangeMaterialOnReach(isReachable);
             //Debug.Log($"[GridSpawner] Passenger ({passenger.gridCoord.x},{passenger.gridCoord.y}) reachable={passenger.isReachable} pathLen={(shortestPath == null ? 0 : shortestPath.Count)}");
         }
     }
@@ -256,15 +327,26 @@ private void Awake()
     {
         if (level == null || !Application.isPlaying) return;
 
-        Gizmos.color = new Color(0.2f, 0.8f, 0.2f, 0.5f);
         for (int y = 0; y < level.height; y++)
         {
             for (int x = 0; x < level.width; x++)
             {
-                Gizmos.DrawWireCube(GetWorldPosition(x, y), new Vector3(level.cellSize, 0.1f, level.cellSize));
                 Gizmos.color = Color.red;
+                Gizmos.DrawWireCube(GetWorldPosition(x, y), new Vector3(level.cellSize, 0.1f, level.cellSize));
             }
         }
+
+        for (int i = 0; i < WAITING_SIZE; i++)
+        {
+            Vector3 pos = transform.position 
+                + transform.forward * (level.cellSize * (level.height / 2 + 1)) 
+                + transform.right * (level.cellSize * (i - WAITING_SIZE / 2)) 
+                + new Vector3(0f, 0f, level.cellSize);
+
+            Gizmos.color = Color.blue;
+            Gizmos.DrawWireCube(pos + shift, new Vector3(level.cellSize, 0.1f, level.cellSize));
+        }
+        
     }
 
 }
