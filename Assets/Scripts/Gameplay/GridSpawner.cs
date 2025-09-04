@@ -13,6 +13,7 @@ public class GridSpawner : MonoBehaviour
     // Grid data
     private GridCell[,] _grid;
     private GridCell[] _waitingLine;
+    private int _waitingLineCount = 0;
 
     // SINGLETON
     public static GridSpawner Instance { get; private set; }
@@ -166,7 +167,44 @@ private void Awake()
     public void OnPassengerClicked(Passenger clicked)
     {
         //Debug.Log($"[GridSpawner] Passenger clicked at ({clicked.gridCoord.x},{clicked.gridCoord.y}). Computing paths for all passengers...");
-        ComputePathsForAllPassengers();
+        //ComputePathsForAllPassengers();
+        if (clicked.isReachable)
+        {
+            // Further actions for reachable passenger can be added here
+            Debug.Log($"[GridSpawner] Clicked reachable passenger at ({clicked.gridCoord.x},{clicked.gridCoord.y}).");
+            if (_waitingLineCount == 5)
+            {
+                Debug.Log("GAME OVER - LOOOOSEEEERRRRR");
+                return;
+            }
+            else
+            {
+                Debug.Log("Passenger added to waiting line.");
+                for (int i = 0; i < _waitingLine.Length; i++)
+                {
+                    if (_waitingLine[i] == null)
+                    {
+                        GridCell cell = GetGridCell(clicked.gridCoord.x, clicked.gridCoord.y);
+                        if (cell == null)
+                        {
+                            Debug.LogWarning("[GridSpawner] Tried to add to waiting line but cell is null.");
+                            return;
+                        }
+
+                        _waitingLine[i] = cell;
+                        _waitingLineCount++;
+                        cell.ClearOccupyingObject();
+                        Destroy(clicked.gameObject);
+                        break;
+                    }
+                }
+                ComputePathsForAllPassengers();
+            }
+        }
+        else
+        {
+            Debug.Log($"[GridSpawner] Clicked passenger at ({clicked.gridCoord.x},{clicked.gridCoord.y}) but NOT reachable.");
+        }
     }
 
     void ComputePathsForAllPassengers()

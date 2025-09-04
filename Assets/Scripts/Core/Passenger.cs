@@ -109,15 +109,15 @@ public class Passenger : MonoBehaviour
     {
         onClickedByPlayer?.Invoke(this);
 
-        if (isReachable)
-        {
-            Debug.Log($"[Passenger] Clicked reachable passenger at ({gridCoord.x},{gridCoord.y}) — {gameObject.name}");
-            // Add any further behavior here (events, notify manager, play animation, etc.)
-        }
-        else
-        {
-            Debug.Log($"[Passenger] Clicked passenger at ({gridCoord.x},{gridCoord.y}) but NOT reachable.");
-        }
+        //if (isReachable)
+        //{
+        //    Debug.Log($"[Passenger] Clicked reachable passenger at ({gridCoord.x},{gridCoord.y}) — {gameObject.name}");
+        //    // Add any further behavior here (events, notify manager, play animation, etc.)
+        //}
+        //else
+        //{
+        //    Debug.Log($"[Passenger] Clicked passenger at ({gridCoord.x},{gridCoord.y}) but NOT reachable.");
+        //}
     }
 
     public void InitializeGridCoord(int x, int y)
