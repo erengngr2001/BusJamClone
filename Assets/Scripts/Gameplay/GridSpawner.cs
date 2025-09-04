@@ -174,7 +174,7 @@ public class GridSpawner : MonoBehaviour
             Passenger passenger = passengerObj.GetComponent<Passenger>();
             if (passenger == null) continue;
 
-            List<Vector2Int> shortestPath = Pathfinding.FindPathAStar(_grid, passenger.gridCoord.x, passenger.gridCoord.y, frontY);
+            List<Vector2Int> shortestPath = Pathfinding.FindPathAStar(level, passenger.gridCoord.x, passenger.gridCoord.y, frontY);
             bool isReachable = shortestPath != null && shortestPath.Count > 0;
             passenger.isReachable = isReachable;
             passenger.SetPath(shortestPath);

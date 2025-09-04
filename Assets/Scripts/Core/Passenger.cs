@@ -105,17 +105,21 @@ public class Passenger : MonoBehaviour
         }
     }
 
-    // Optional helper you can call from GridSpawner when instantiating
     public void InitializeGridCoord(int x, int y)
     {
         gridCoord.x = x;
         gridCoord.y = y;
     }
 
-    // Called by GridSpawner to store the path (may be null)
+    // Called by GridSpawner to store the path (may be null - future check)
     public void SetPath(List<Vector2Int> path)
     {
         currentPath = path;
+    }
+
+    public void SetReachable(bool isReachable)
+    {
+        this.isReachable = isReachable;
     }
 
 }
