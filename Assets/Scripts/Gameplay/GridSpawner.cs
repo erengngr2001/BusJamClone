@@ -174,7 +174,7 @@ public class GridSpawner : MonoBehaviour
             Passenger passenger = passengerObj.GetComponent<Passenger>();
             if (passenger == null) continue;
 
-            List<Vector2Int> shortestPath = FindPathAStar(passenger.gridCoord.x, passenger.gridCoord.y, frontY);
+            List<Vector2Int> shortestPath = Pathfinding.FindPathAStar(_grid, passenger.gridCoord.x, passenger.gridCoord.y, frontY);
             bool isReachable = shortestPath != null && shortestPath.Count > 0;
             passenger.isReachable = isReachable;
             passenger.SetPath(shortestPath);
@@ -182,19 +182,6 @@ public class GridSpawner : MonoBehaviour
         }
     }
 
-    // WILL BE IMPLEMENTED TOMORROW - placeholder for A* pathfinding
-    List<Vector2Int> FindPathAStar(int startX, int startY, int targetY)
-    {
-        // A* pathfinding implementation would go here
-        // This is a placeholder for the actual pathfinding logic
-        return new List<Vector2Int>();
-    }
-
-    // Manhattan-style heuristic: distance to nearest front row cell (admissible)
-    private int Heuristic(int x, int y, int frontY)
-    {
-        return Mathf.Abs(y - frontY);
-    }
 
     private void OnDrawGizmos()
     {
@@ -206,6 +193,7 @@ public class GridSpawner : MonoBehaviour
             for (int x = 0; x < level.width; x++)
             {
                 Gizmos.DrawWireCube(GetWorldPosition(x, y), new Vector3(level.cellSize, 0.1f, level.cellSize));
+                Gizmos.color = Color.red;
             }
         }
     }
