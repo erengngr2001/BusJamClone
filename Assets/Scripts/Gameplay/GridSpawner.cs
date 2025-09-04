@@ -220,7 +220,7 @@ private void Awake()
         {
             // Further actions for reachable passenger can be added here
             Debug.Log($"[GridSpawner] Clicked reachable passenger at ({clicked.gridCoord.x},{clicked.gridCoord.y}).");
-            if (_waitingLineCount >= _waitingSlots.Length)
+            if (_waitingLineCount >= _waitingSlots.Length || level.GetRemaniningTime() <= 0)
             {
                 Debug.Log("GAME OVER - LOOOOSEEEERRRRR");
                 return;

@@ -63,4 +63,9 @@ public class LevelData : ScriptableObject
     {
         ResizeCells();
     }
+
+    public float GetRemaniningTime()
+    {
+        return countdown;
+    }
 }
