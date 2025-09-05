@@ -5,20 +5,29 @@ using UnityEngine;
 
 public class Vehicle : MonoBehaviour
 {
-    //public bool isFull = false;
     public int capacity = 3;
     public Color color;
-    public bool isFull => passengers.Count >= capacity;
+    public bool isFull => _passengersOnBoard >= capacity;
 
-    private List<GameObject> passengers = new List<GameObject>();
-    private Renderer vehicleRenderer;
+    private int _passengersOnBoard = 0;
+    private List<GameObject> _passengerSeats = new List<GameObject>();
+    private Renderer _vehicleRenderer;
 
     public Action<Vehicle> onVehicleFull;
 
     private void Awake()
     {
-        vehicleRenderer = GetComponentInChildren<Renderer>();
-        //Debug.Log(vehicleRenderer.name);
+        _vehicleRenderer = GetComponentInChildren<Renderer>();
+
+        for (int i = 0; i < capacity; i++)
+        {
+            Transform seat = transform.Find($"Passenger_{i}");
+            if (seat != null)
+            {
+                _passengerSeats.Add(seat.gameObject);
+                seat.gameObject.SetActive(false);
+            }
+        }
     }
 
     public void Initialize(Color vehicleColor, int vehicleCapacity)
@@ -30,14 +39,12 @@ public class Vehicle : MonoBehaviour
 
     private void ApplyColorToRenderer()
     {
-        if (vehicleRenderer != null)
+        if (_vehicleRenderer != null)
         {
             MaterialPropertyBlock mpb = new MaterialPropertyBlock();
-            //if (vehicleRenderer.sharedMaterial != null && vehicleRenderer.sharedMaterial.HasProperty("_BaseColor"))
-            //    mpb.SetColor("_BaseColor", color);
-            mpb.SetColor("_BaseColor", color); // URP/HDRP
-            mpb.SetColor("_Color", color);     // Built-in fallback
-            vehicleRenderer.SetPropertyBlock(mpb);
+            mpb.SetColor("_BaseColor", color);
+            mpb.SetColor("_Color", color);
+            _vehicleRenderer.SetPropertyBlock(mpb);
         }
     }
 
@@ -45,7 +52,12 @@ public class Vehicle : MonoBehaviour
     {
         if (isFull) return false;
 
-        passengers.Add(passenger);
+        if (_passengersOnBoard < _passengerSeats.Count)
+        {
+            _passengerSeats[_passengersOnBoard].SetActive(true);
+        }
+
+        _passengersOnBoard++;
 
         if (isFull)
         {
@@ -58,8 +70,41 @@ public class Vehicle : MonoBehaviour
 
     public void ResetForReuse()
     {
-        passengers.Clear();
-        // Reset any visual state you may have (animations, lights, etc.)
+        _passengersOnBoard = 0;
+        foreach (var seat in _passengerSeats)
+        {
+            seat.SetActive(false);
+        }
+    }
+
+    public void Depart()
+    {
+        StartCoroutine(DepartRoutine());
+    }
+
+    private IEnumerator DepartRoutine()
+    {
+        // Prevent interaction while departing
+        if (GetComponent<Collider>() != null)
+        {
+            GetComponent<Collider>().enabled = false;
+        }
+
+        Vector3 startPos = transform.position;
+        Vector3 endPos = startPos + transform.forward * 40f; // Move further off-screen
+        float duration = 1.5f;
+        float elapsed = 0f;
+
+        while (elapsed < duration)
+        {
+            transform.position = Vector3.Lerp(startPos, endPos, elapsed / duration);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        // The vehicle is now responsible for its own destruction after notifying the manager.
+        VehicleManager.Instance.NotifyBusDeparted(this);
+        Destroy(gameObject);
     }
 
     public void SetTransform(Vector3 position, Quaternion rotation)
@@ -72,5 +117,5 @@ public class Vehicle : MonoBehaviour
     {
         gameObject.SetActive(visible);
     }
-
 }
+

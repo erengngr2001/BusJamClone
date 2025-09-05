@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 
 // Waiting-slot small container
@@ -33,7 +34,7 @@ public class GridSpawner : MonoBehaviour
     // SINGLETON
     public static GridSpawner Instance { get; private set; }
 
-private void Awake()
+    private void Awake()
     {
         if (Instance != null && Instance != this)
         {
@@ -105,10 +106,10 @@ private void Awake()
 
         for (int i = 0; i < WAITING_SIZE; i++)
         {
-            Vector3 pos = transform.position 
-                + transform.forward * (level.cellSize * (level.height / 2 + 1)) 
-                + transform.right * (level.cellSize * (i - WAITING_SIZE / 2)) 
-                + new Vector3(0f, 0f, level.cellSize) 
+            Vector3 pos = transform.position
+                + transform.forward * (level.cellSize * (level.height / 2 + 1))
+                + transform.right * (level.cellSize * (i - WAITING_SIZE / 2))
+                + new Vector3(0f, 0f, level.cellSize)
                 + shift;
 
             var slot = new WaitingSlot();
@@ -209,7 +210,7 @@ private void Awake()
         int h = level.height;
 
         Vector3 origin = center - right * ((w - 1) * cs * 0.5f) - forward * ((h - 1) * cs * 0.5f);
-        
+
         return origin + right * (x * cs) + forward * (y * cs) + shift;
     }
 
@@ -270,7 +271,7 @@ private void Awake()
 
                 // mark passenger as non-interactive and mark its gridCoord as "off-grid"
                 clicked.SetInteractable(false);
-                clicked.SetReachableImmediate(true); 
+                clicked.SetReachableImmediate(true);
                 clicked.InitializeGridCoord(-1, -1);
 
                 // update slot bookkeeping
@@ -282,6 +283,9 @@ private void Awake()
                 _waitingLineCount++;
 
                 Debug.Log($"Passenger moved to waiting slot {slotIndex}. _waitingLineCount={_waitingLineCount}");
+
+                // Trigger the boarding check now that a new passenger is waiting
+                ProcessBoarding();
 
                 // Recompute paths for remaining passengers (passengers parent only)
                 ComputePathsForAllPassengers();
@@ -332,6 +336,92 @@ private void Awake()
         return true;
     }
 
+
+    /// <summary>
+    /// Checks waiting passengers and boards them onto the front bus if colors match.
+    /// </summary>
+    public void ProcessBoarding()
+    {
+        Vehicle frontBus = VehicleManager.Instance.GetFrontBus();
+        if (frontBus == null || frontBus.isFull)
+        {
+            return; // No bus or bus is already full
+        }
+
+        bool passengerBoarded = false;
+
+        // Iterate through waiting slots to find matching passengers
+        for (int i = 0; i < _waitingSlots.Length; i++)
+        {
+            if (frontBus.isFull) break; // Stop if bus becomes full mid-check
+
+            WaitingSlot slot = _waitingSlots[i];
+            if (slot.occupant != null)
+            {
+                Passenger passenger = slot.occupant.GetComponent<Passenger>();
+                PassengerColorManager colorManager = slot.occupant.GetComponent<PassengerColorManager>();
+
+                // Compare passenger color with bus color
+                if (passenger != null && colorManager != null && ColorUtility.ToHtmlStringRGB(colorManager.GetOriginalColor()) == ColorUtility.ToHtmlStringRGB(frontBus.color))
+                {
+                    if (frontBus.TryAddPassenger(passenger.gameObject))
+                    {
+                        // Boarding successful
+                        Destroy(passenger.gameObject); // Destroy the passenger
+
+                        // Clear the waiting slot
+                        slot.occupant = null;
+                        if (slot.placeholder != null) slot.placeholder.SetActive(true);
+                        slot.slotCell.ClearOccupyingObject();
+                        _waitingLineCount--;
+
+                        passengerBoarded = true;
+                    }
+                }
+            }
+        }
+
+        // If at least one passenger boarded, compact the line to remove gaps
+        if (passengerBoarded)
+        {
+            CompactWaitingLine();
+        }
+    }
+
+    /// <summary>
+    /// Reorganizes the waiting line to fill empty slots from the front.
+    /// </summary>
+    private void CompactWaitingLine()
+    {
+        // Get all passengers that are still waiting
+        List<GameObject> remainingPassengers = _waitingSlots
+            .Where(s => s.occupant != null)
+            .Select(s => s.occupant)
+            .ToList();
+
+        // Clear all slots in the data structure
+        for (int i = 0; i < _waitingSlots.Length; i++)
+        {
+            _waitingSlots[i].occupant = null;
+            if (_waitingSlots[i].placeholder != null) _waitingSlots[i].placeholder.SetActive(true);
+            _waitingSlots[i].slotCell.ClearOccupyingObject();
+        }
+
+        // Re-add the passengers to the front of the line
+        for (int i = 0; i < remainingPassengers.Count; i++)
+        {
+            GameObject passengerObj = remainingPassengers[i];
+            WaitingSlot slot = _waitingSlots[i];
+
+            slot.occupant = passengerObj;
+            if (slot.placeholder != null) slot.placeholder.SetActive(false);
+            slot.slotCell.SetOccupyingObject(passengerObj);
+
+            // Snap the passenger to the new slot's position
+            passengerObj.transform.position = slot.slotCell.worldPos + new Vector3(0f, .55f, 0f);
+        }
+    }
+
     private void OnDrawGizmos()
     {
         if (level == null || !Application.isPlaying) return;
@@ -347,15 +437,16 @@ private void Awake()
 
         for (int i = 0; i < WAITING_SIZE; i++)
         {
-            Vector3 pos = transform.position 
-                + transform.forward * (level.cellSize * (level.height / 2 + 1)) 
-                + transform.right * (level.cellSize * (i - WAITING_SIZE / 2)) 
+            Vector3 pos = transform.position
+                + transform.forward * (level.cellSize * (level.height / 2 + 1))
+                + transform.right * (level.cellSize * (i - WAITING_SIZE / 2))
                 + new Vector3(0f, 0f, level.cellSize);
 
             Gizmos.color = Color.blue;
             Gizmos.DrawWireCube(pos + shift, new Vector3(level.cellSize, 0.1f, level.cellSize));
         }
-        
+
     }
+
 
 }

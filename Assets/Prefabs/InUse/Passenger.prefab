@@ -146,7 +146,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 81bb9eea30387e442899949a80011e55, type: 3}
       propertyPath: m_Name
-      value: Banana Man
+      value: Passenger
       objectReference: {fileID: 0}
     - target: {fileID: 1630794972795428178, guid: 81bb9eea30387e442899949a80011e55, type: 3}
       propertyPath: m_Materials.Array.data[0]
@@ -233,6 +233,7 @@ MonoBehaviour:
   isReachable: 1
   gridCoord: {x: -1, y: -1}
   currentPath: []
+  passengerColor: {r: 0.83137256, g: 0.105882354, b: 0.1254902, a: 1}
 --- !u!54 &6480844948378093066
 Rigidbody:
   m_ObjectHideFlags: 0

@@ -10,7 +10,7 @@ public class Passenger : MonoBehaviour
     private bool _interactable = true;
 
     public bool isReachable = true;
-    public Vector2Int gridCoord = new Vector2Int(-1,-1);
+    public Vector2Int gridCoord = new Vector2Int(-1, -1);
     //public System.Action<Passenger> onPassengerClicked;
 
     // last computed path (grid coordinates start..goal). Null if unreachable or not computed.
@@ -22,6 +22,8 @@ public class Passenger : MonoBehaviour
 
     // reference to color manager (cached)
     private PassengerColorManager colorManager;
+    // ADD THIS PROPERTY
+    public Color PassengerColor => colorManager != null ? colorManager.GetOriginalColor() : Color.white;
 
     // Input Actions (created in code for simplicity)
     private InputAction pointerPosAction;
@@ -80,7 +82,7 @@ public class Passenger : MonoBehaviour
     }
 
     // Called when any pointer press occurs. We read the pointer position
-    // and raycast — if the raycast hit belongs to this GameObject, we handle it.
+    // and raycast if the raycast hit belongs to this GameObject, we handle it.
     private void OnClickPerformed(InputAction.CallbackContext ctx)
     {
         // Read screen position from pointer action

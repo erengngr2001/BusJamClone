@@ -6,8 +6,6 @@ public class VehicleManager : MonoBehaviour
 {
     [Header("Spawner Settings")]
     public Transform vehicleSpawner;
-
-    [Tooltip("How many buses are visible at once (default 2).")]
     public int visibleCount = 2;
 
     [Header("Pool Settings")]
@@ -17,43 +15,38 @@ public class VehicleManager : MonoBehaviour
     public GameObject vehiclePrefab;
     public int busCapacity = 3;
     public Color[] possibleColors;
-
-    [Tooltip("Spacing between buses along spawner.forward direction.")]
     public float busSpacing = 17f;
 
-    //private List<Vehicle> activeVehicles = new List<Vehicle>();
+    [Tooltip("How long the bus shifting animation takes.")]
+    public float shiftAnimationDuration = 0.5f; // Animation speed control
 
     private List<Vehicle> _pool = new List<Vehicle>();
     private List<Vehicle> _visibleQueue = new List<Vehicle>();
     private Transform _vehiclesParent;
 
+    public static VehicleManager Instance { get; private set; }
+
     private void Awake()
     {
-        if (vehicleSpawner == null)
-        {
-            vehicleSpawner = GameObject.Find("VehicleSpawner").transform ?? this.transform; 
-            //vehicleSpawner = this.transform;
-        }
+        if (Instance != null && Instance != this) Destroy(gameObject);
+        else Instance = this;
 
-        // create parent
+        if (vehicleSpawner == null)
+            vehicleSpawner = GameObject.Find("VehicleSpawner").transform ?? this.transform;
+
         _vehiclesParent = transform.Find("Vehicles");
         if (_vehiclesParent == null)
         {
             _vehiclesParent = new GameObject("Vehicles").transform;
             _vehiclesParent.SetParent(this.transform, false);
         }
-
-        //InitializePool();
-        //ActivateInitialVisible();
     }
 
     void Start()
     {
-        //SpawnBus();
         poolSize = GridSpawner.passengerCount / busCapacity;
         InitializePool();
         ActivateInitialVisible();
-        //Debug.Log(poolSize);
     }
 
     void InitializePool()
@@ -63,34 +56,18 @@ public class VehicleManager : MonoBehaviour
             Debug.LogError("VehicleManager: vehiclePrefab is not assigned.");
             return;
         }
-
-        // instantiate pool and keep them inactive initially
         for (int i = 0; i < poolSize; i++)
         {
             GameObject vehicleObj = Instantiate(vehiclePrefab, _vehiclesParent);
-            vehicleObj.name = $"Vehicle_{i}";
+            vehicleObj.name = $"Vehicle_{i + 1}"; // Name them 1-based for clarity
             Vehicle v = vehicleObj.GetComponent<Vehicle>();
-            //if (v == null)
-            //{
-            //    Debug.LogError("Vehicle prefab has no Vehicle component!");
-            //    Destroy(vehicleObj);
-            //    continue;
-            //}
-
-            // pick a color (random from possibleColors if provided) --- WILL BE OVERRIDDEN LATER FROM EDITOR LEVEL DESIGNER
             Color c = possibleColors != null && possibleColors.Length > 0
                 ? possibleColors[Random.Range(0, possibleColors.Length)]
                 : Color.white;
-
             v.Initialize(c, busCapacity);
             v.ResetForReuse();
-
-            // ensure inactive to start (hidden until shown)
             v.SetVisible(false);
-
-            // subscribe event (optional) — you can have manager listen when bus becomes full
             v.onVehicleFull += OnVehicleFull;
-
             _pool.Add(v);
         }
     }
@@ -98,7 +75,6 @@ public class VehicleManager : MonoBehaviour
     void ActivateInitialVisible()
     {
         _visibleQueue.Clear();
-
         int toShow = Mathf.Min(visibleCount, _pool.Count);
         for (int i = 0; i < toShow; i++)
         {
@@ -107,134 +83,96 @@ public class VehicleManager : MonoBehaviour
             _visibleQueue.Add(v);
         }
 
-        // Position visible vehicles (front at spawner, others behind)
-        RepositionVisibleVehicles();
-    }
-
-    void RepositionVisibleVehicles()
-    {
+        // Snap to initial positions
         for (int i = 0; i < _visibleQueue.Count; i++)
         {
-            // front (i==0) is fully visible at spawner
-            //Vector3 pos = vehicleSpawner.position + vehicleSpawner.forward * (-i * busSpacing);
-            Vector3 pos = vehicleSpawner.position + vehicleSpawner.forward * (i * busSpacing);
-            Quaternion rot = vehicleSpawner.rotation;
-            _visibleQueue[i].SetTransform(pos, rot);
+            Vector3 pos = vehicleSpawner.position + vehicleSpawner.forward * (-i * busSpacing);
+            _visibleQueue[i].SetTransform(pos, vehicleSpawner.rotation);
         }
+
+        GridSpawner.Instance.ProcessBoarding();
     }
 
-    /// <summary>
-    /// Returns the first visible bus that has free capacity, or null.
-    /// Searches visible buses first (game logic usually fills visible ones).
-    /// </summary>
-    public Vehicle GetAvailableVisibleBus()
+    public Vehicle GetFrontBus()
     {
-        foreach (var v in _visibleQueue)
-        {
-            if (!v.isFull) return v;
-        }
-        return null;
+        return _visibleQueue.Count > 0 ? _visibleQueue[0] : null;
     }
 
-    /// <summary>
-    /// Call this when a bus departed (or should be recycled). The manager will:
-    /// - remove the departed bus from visible queue and hide it/reset it,
-    /// - bring the next hidden bus (if any) into visibility as the last slot,
-    /// - reposition visible buses so the line is continuous.
-    /// </summary>
     public void NotifyBusDeparted(Vehicle departed)
     {
-        if (departed == null) return;
+        // The departed bus is already destroyed, so we just update our lists.
+        _visibleQueue.Remove(departed);
+        _pool.Remove(departed);
 
-        // find in visible queue
-        int idx = _visibleQueue.IndexOf(departed);
-        if (idx == -1)
+        // Find the next bus in the main pool that isn't already visible.
+        Vehicle nextInLine = null;
+        foreach (var bus in _pool)
         {
-            // if it wasn't visible, just make sure we reset it
-            departed.ResetForReuse();
-            departed.SetVisible(false);
-            return;
+            if (!_visibleQueue.Contains(bus))
+            {
+                nextInLine = bus;
+                break;
+            }
         }
 
-        // remove it from visible queue and hide/reset
-        _visibleQueue.RemoveAt(idx);
-        departed.ResetForReuse();
-        departed.SetVisible(false);
-
-        // find the first hidden bus in pool (inactive) to become the new last visible
-        Vehicle nextHidden = _pool.Find(x => !x.gameObject.activeSelf);
-        if (nextHidden != null)
+        if (nextInLine != null)
         {
-            nextHidden.SetVisible(true);
-            _visibleQueue.Add(nextHidden);
-        }
-        else
-        {
-            // if none hidden, we can optionally reuse the departed bus (circular pool).
-            // For now we won't re-add it immediately.
+            // Position the new bus at the back before the animation starts.
+            Vector3 newBusPos = vehicleSpawner.position + vehicleSpawner.forward * (-visibleCount * busSpacing);
+            nextInLine.SetTransform(newBusPos, vehicleSpawner.rotation);
+            nextInLine.SetVisible(true);
+            _visibleQueue.Add(nextInLine);
         }
 
-        // reposition the visible line (front at spawner)
-        RepositionVisibleVehicles();
+        // Animate all visible buses moving forward.
+        StartCoroutine(AnimateBusQueueShift());
     }
 
-    // example hook for when a vehicle becomes full
     private void OnVehicleFull(Vehicle v)
     {
         Debug.Log($"VehicleManager noticed {v.name} is full.");
-        // Option: automatically trigger departure (recycle) or move vehicle.
-        // For example:
-        // NotifyBusDeparted(v);
+        v.Depart();
     }
 
-    // Optional: helper to force-spawn next bus immediately (useful for testing)
-    public void ForceShowNextHiddenBus()
+    private IEnumerator AnimateBusQueueShift()
     {
-        Vehicle nextHidden = _pool.Find(x => !x.gameObject.activeSelf);
-        if (nextHidden != null)
+        float elapsed = 0f;
+
+        // Store start and end positions for a smooth lerp
+        List<Vector3> startPositions = new List<Vector3>();
+        List<Vector3> endPositions = new List<Vector3>();
+
+        for (int i = 0; i < _visibleQueue.Count; i++)
         {
-            _visibleQueue.Add(nextHidden);
-            nextHidden.SetVisible(true);
-            RepositionVisibleVehicles();
+            startPositions.Add(_visibleQueue[i].transform.position);
+            endPositions.Add(vehicleSpawner.position + vehicleSpawner.forward * (-i * busSpacing));
         }
+
+        while (elapsed < shiftAnimationDuration)
+        {
+            for (int i = 0; i < _visibleQueue.Count; i++)
+            {
+                // Safety check in case a bus was destroyed during the animation
+                if (_visibleQueue[i] != null)
+                {
+                    _visibleQueue[i].transform.position = Vector3.Lerp(startPositions[i], endPositions[i], elapsed / shiftAnimationDuration);
+                }
+            }
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        // Snap to final positions to ensure accuracy
+        for (int i = 0; i < _visibleQueue.Count; i++)
+        {
+            if (_visibleQueue[i] != null)
+            {
+                _visibleQueue[i].transform.position = endPositions[i];
+            }
+        }
+
+        // After the animation is complete, check if the new front bus can board anyone.
+        GridSpawner.Instance.ProcessBoarding();
     }
-
-    //public Vehicle SpawnBus()
-    //{
-    //    if (vehiclePrefab == null || vehicleSpawner == null)
-    //    {
-    //        Debug.LogError("VehicleManager: Missing prefab or spawner reference.");
-    //        return null;
-    //    }
-
-    //    // Instantiate the bus
-    //    GameObject busObj = Instantiate(vehiclePrefab, vehicleSpawner.position, vehicleSpawner.rotation);
-
-    //    // Get Vehicle component
-    //    Vehicle vehicle = busObj.GetComponent<Vehicle>();
-    //    if (vehicle == null)
-    //    {
-    //        Debug.LogError("Vehicle prefab has no Vehicle script attached!");
-    //        return null;
-    //    }
-
-    //    // Pick a random color if not assigned
-    //    Color chosenColor = possibleColors.Length > 0 ? possibleColors[Random.Range(0, possibleColors.Length)] : Color.white;
-
-    //    // Initialize bus
-    //    vehicle.Initialize(chosenColor, busCapacity);
-
-    //    // Track it
-    //    activeVehicles.Add(vehicle);
-
-    //    return vehicle;
-    //}
-
-    ///// <summary>
-    ///// Returns the first bus that still has space.
-    ///// </summary>
-    //public Vehicle GetAvailableBus()
-    //{
-    //    return activeVehicles.Find(v => !v.isFull);
-    //}
 }
+

@@ -88,7 +88,7 @@ public class PassengerColorManager : MonoBehaviour
         }
         else
         {
-            // fallback: set common names — if shader ignores them, no harm done
+            // fallback: set common names if shader ignores them, no harm done
             _mpb.SetColor("_Color", display);
             _mpb.SetColor("_BaseColor", display);
         }
@@ -110,5 +110,11 @@ public class PassengerColorManager : MonoBehaviour
 
         // apply to renderer (non-destructive)
         _renderer.SetPropertyBlock(_mpb);
+    }
+
+    // ADD THIS METHOD
+    public Color GetOriginalColor()
+    {
+        return _originalColor;
     }
 }
