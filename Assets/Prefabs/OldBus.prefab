@@ -119,7 +119,7 @@ GameObject:
   - component: {fileID: 172795662045540618}
   - component: {fileID: -9135972629848521684}
   m_Layer: 0
-  m_Name: Bus
+  m_Name: OldBus
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

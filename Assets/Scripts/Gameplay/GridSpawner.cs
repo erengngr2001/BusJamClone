@@ -20,6 +20,7 @@ public class GridSpawner : MonoBehaviour
     public LevelData level;            // assign the LevelData asset
     public GameObject passengerPrefab; // assign passenger prefab
     public List<Vector2Int> passengerSpawnCoords;
+    public static int passengerCount = 0;
 
     // Grid data
     private GridCell[,] _grid;
@@ -31,7 +32,6 @@ public class GridSpawner : MonoBehaviour
 
     // SINGLETON
     public static GridSpawner Instance { get; private set; }
-    private int passengerCount = 0;
 
 private void Awake()
     {
@@ -47,10 +47,8 @@ private void Awake()
             GenerateGridData();
             GenerateWaitingLine();
         }
-    }
 
-    private void Start()
-    {
+        // ADDED TO AWAKE FROM START IN ORDER TO EASIER ACCESS TO PASSENGERCOUNT
         if (passengerSpawnCoords == null || passengerSpawnCoords.Count == 0)
         {
             PreparePassengerList();
@@ -59,6 +57,17 @@ private void Awake()
         //Debug.Log($"[GridSpawner] Spawned {passengerCount} passenger groups.");
         ComputePathsForAllPassengers();
     }
+
+    //private void Start()
+    //{
+    //    if (passengerSpawnCoords == null || passengerSpawnCoords.Count == 0)
+    //    {
+    //        PreparePassengerList();
+    //    }
+    //    SpawnPassengers();
+    //    //Debug.Log($"[GridSpawner] Spawned {passengerCount} passenger groups.");
+    //    ComputePathsForAllPassengers();
+    //}
 
     private void GenerateGridData()
     {
