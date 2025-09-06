@@ -110,6 +110,8 @@ public class Passenger : MonoBehaviour
     {
         if (!_interactable) return;
         onClickedByPlayer?.Invoke(this);
+        Collider c = GetComponent<Collider>();
+        c.enabled = false; // disable further clicks
     }
 
     public void SetInteractable(bool v)

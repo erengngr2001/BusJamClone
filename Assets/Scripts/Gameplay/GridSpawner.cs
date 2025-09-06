@@ -16,12 +16,20 @@ public class WaitingSlot
 public class GridSpawner : MonoBehaviour
 {
     const int WAITING_SIZE = 5;
+
+    [Header("Use This to Shift Grid on Ground")]
     public Vector3 shift = new Vector3(0f, 0f, -2f); // to center of cell
 
+    [Header("Current Level")]
     public LevelData level;            // assign the LevelData asset
-    public GameObject passengerPrefab; // assign passenger prefab
-    public List<Vector2Int> passengerSpawnCoords;
+
+    [HideInInspector] public List<Vector2Int> passengerSpawnCoords;
     public static int passengerCount = 0;
+
+    [Header("Prefabs")]
+    public GameObject passengerPrefab; // assign passenger prefab
+    public GameObject obstaclePrefab;  // assign obstacle prefab
+    public GameObject pipePrefab;      // assign pipe prefab
 
     // Grid data
     private GridCell[,] _grid;
@@ -54,6 +62,7 @@ public class GridSpawner : MonoBehaviour
         {
             PreparePassengerList();
         }
+        SpawnObstacle();
         SpawnPassengers();
         //Debug.Log($"[GridSpawner] Spawned {passengerCount} passenger groups.");
         ComputePathsForAllPassengers();
@@ -150,6 +159,46 @@ public class GridSpawner : MonoBehaviour
                 }
             }
         }
+    }
+
+    void SpawnObstacle()
+    {
+        if (passengerPrefab == null)
+        {
+            Debug.LogError("Obstacle Prefab not assigned!");
+            return;
+        }
+
+        Transform existing = transform.Find("Obstacles");
+        Transform obstacleParent;
+        if (existing != null)
+        {
+            obstacleParent = existing;
+        }
+        else
+        {
+            obstacleParent = new GameObject("Obstacles").transform;
+            obstacleParent.SetParent(this.transform);
+        }
+
+        for (int x = 0; x < level.width; x++)
+        {
+            for (int y = 0; y < level.height; y++)
+            {
+                if (level.GetCell(x, y) == CellType.Obstacle)
+                {
+                    GridCell cell = GetGridCell(x, y);
+                    if (cell != null && !cell.IsOccupied())
+                    {
+                        Vector3 spawnPos = cell.worldPos + new Vector3(0f, .55f, 0f);
+                        GameObject obstacleInstance = Instantiate(obstaclePrefab, spawnPos, Quaternion.identity, obstacleParent);
+                        obstacleInstance.name = $"Obstacle_({x},{y})";
+                        cell.SetOccupyingObject(obstacleInstance); // Mark the cell as occupied
+                    }
+                }
+            }
+        }
+
     }
 
     public void SpawnPassengers()
