@@ -172,7 +172,7 @@ public class GridSpawner : MonoBehaviour
             passengerParent = new GameObject("Passengers").transform;
             passengerParent.SetParent(this.transform);
         }
-
+         
         foreach (Vector2Int coord in passengerSpawnCoords)
         {
             GridCell cell = GetGridCell(coord.x, coord.y);
@@ -187,6 +187,41 @@ public class GridSpawner : MonoBehaviour
                 psg?.InitializeGridCoord(coord.x, coord.y);
                 if (psg != null)
                     psg.onClickedByPlayer = OnPassengerClicked;
+
+                Material mat = level.GetCellMaterial(coord.x, coord.y);
+                if (mat != null)
+                {
+                    Renderer bodyRenderer = null;
+                    Transform body = passengerInstance.transform.Find("Body");
+
+                    if (body != null)
+                        bodyRenderer = body.GetComponent<Renderer>();
+
+                    if (bodyRenderer != null)
+                    {
+                        var r = passengerInstance.GetComponentInChildren<Renderer>();
+                        Debug.Log($"Renderer found: {r.gameObject.name}");
+                        r.material = mat;
+                    }
+
+                    if (bodyRenderer != null)
+                    {
+                        bodyRenderer.material = mat;
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"Body renderer not found in passenger prefab instance at ({coord.x}, {coord.y}).");
+                    }
+
+                }
+
+                var passColorManager = passengerInstance.GetComponent<PassengerColorManager>();
+                if (passColorManager != null && level.cellColors != null)
+                {
+                    passColorManager.RefreshOriginalColor();
+                    passColorManager.ApplyReachability(psg != null ? psg.isReachable : true);
+                }
+
                 cell.SetOccupyingObject(passengerInstance); // Mark the cell as occupied
             }
             else

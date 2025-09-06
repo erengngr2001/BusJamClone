@@ -112,6 +112,34 @@ public class PassengerColorManager : MonoBehaviour
         _renderer.SetPropertyBlock(_mpb);
     }
 
+    // Allow external code to force re-reading the renderer's material color
+    public void RefreshOriginalColor()
+    {
+        var mat = _renderer.sharedMaterial;
+        _colorPropertyFound = null;
+        _originalColor = Color.white;
+
+        if (mat != null)
+        {
+            foreach (var prop in ColorProps)
+            {
+                if (mat.HasProperty(prop))
+                {
+                    _originalColor = mat.GetColor(prop);
+                    _colorPropertyFound = prop;
+                    break;
+                }
+            }
+
+            if (_colorPropertyFound == null)
+            {
+                _originalColor = mat.color;
+                _colorPropertyFound = "_Color";
+            }
+        }
+    }
+
+
     // ADD THIS METHOD
     public Color GetOriginalColor()
     {
