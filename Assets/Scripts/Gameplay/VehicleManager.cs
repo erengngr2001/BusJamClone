@@ -24,6 +24,8 @@ public class VehicleManager : MonoBehaviour
     private List<Vehicle> _visibleQueue = new List<Vehicle>();
     private Transform _vehiclesParent;
 
+    LevelData level;
+
     public static VehicleManager Instance { get; private set; }
 
     private void Awake()
@@ -44,7 +46,10 @@ public class VehicleManager : MonoBehaviour
 
     void Start()
     {
-        poolSize = GridSpawner.passengerCount / busCapacity;
+        //poolSize = GridSpawner.passengerCount / busCapacity;
+        level = GridSpawner.Instance.level;
+        poolSize = level.vehicleCount;
+        Debug.Log($"VehicleManager: Initializing pool with {poolSize} vehicles.");
         InitializePool();
         ActivateInitialVisible();
     }
@@ -58,18 +63,61 @@ public class VehicleManager : MonoBehaviour
         }
         for (int i = 0; i < poolSize; i++)
         {
-            GameObject vehicleObj = Instantiate(vehiclePrefab, _vehiclesParent);
-            vehicleObj.name = $"Vehicle_{i + 1}"; // Name them 1-based for clarity
+            GameObject vehicleObj = Instantiate(level.vehicles[i], _vehiclesParent);
+            vehicleObj.name = $"Vehicle_{i + 1}";
             Vehicle v = vehicleObj.GetComponent<Vehicle>();
-            Color c = possibleColors != null && possibleColors.Length > 0
-                ? possibleColors[Random.Range(0, possibleColors.Length)]
-                : Color.white;
-            v.Initialize(c, busCapacity);
+            SetColorFromMaterial(vehicleObj, v);
             v.ResetForReuse();
             v.SetVisible(false);
             v.onVehicleFull += OnVehicleFull;
             _pool.Add(v);
         }
+    }
+
+    void SetColorFromMaterial(GameObject vehicleObj, Vehicle v)
+    {
+        if (v == null || vehicleObj == null)
+        {
+            Debug.LogWarning("SetColorFromMaterial: null vehicle or object.");
+            return;
+        }
+
+        Renderer rend = null;
+        Transform modelT = vehicleObj.transform.Find("Model");
+        if (modelT != null)
+        {
+            rend = modelT.GetComponentInChildren<Renderer>();
+        }
+        else
+        {
+            rend = vehicleObj.GetComponentInChildren<Renderer>();
+        }
+
+        Material mat = rend.materials[1];
+
+        if (mat != null)
+        {
+            Color matColor = ExtractColorFromMaterial(mat);
+            v.Initialize(matColor, busCapacity);
+            Debug.Log($"VehicleManager: Setting color for {vehicleObj.name} from material '{mat.name}'.");
+        }
+        else
+        {
+            v.Initialize(Color.white, busCapacity);
+            Debug.LogWarning($"VehicleManager: Renderer or material not found on {vehicleObj.name}. Cannot set color.");
+        }
+
+    }
+
+    Color ExtractColorFromMaterial(Material mat)
+    {
+        Color matColor = mat.HasProperty("_BaseColor") ? mat.GetColor("_BaseColor") :
+                             mat.HasProperty("_Color") ? mat.GetColor("_Color") :
+                             mat.HasProperty("_TintColor") ? mat.GetColor("_TintColor") :
+                             mat.HasProperty("_MainColor") ? mat.GetColor("_MainColor") :
+                             Color.white;
+
+        return matColor;
     }
 
     void ActivateInitialVisible()

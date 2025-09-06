@@ -11,9 +11,12 @@ public class LevelDataEditor : Editor
     private SerializedProperty heightProp;
     private SerializedProperty cellSizeProp;
     private SerializedProperty cellsProp;
+    private SerializedProperty vehicleCountProp;
+    private SerializedProperty vehiclesProp;
     private SerializedProperty cellColorsProp;
     private SerializedProperty cellMaterialsProp;
     private SerializedProperty countdownProp;
+    private int totalPassengers;
 
     private void OnEnable()
     {
@@ -22,6 +25,8 @@ public class LevelDataEditor : Editor
         heightProp = serializedObject.FindProperty("height");
         cellSizeProp = serializedObject.FindProperty("cellSize");
         cellsProp = serializedObject.FindProperty("cells");
+        vehicleCountProp = serializedObject.FindProperty("vehicleCount");
+        vehiclesProp = serializedObject.FindProperty("vehicles");
         cellColorsProp = serializedObject.FindProperty("cellColors");
         cellMaterialsProp = serializedObject.FindProperty("cellMaterials");
         countdownProp = serializedObject.FindProperty("countdown");
@@ -39,6 +44,8 @@ public class LevelDataEditor : Editor
         EditorGUILayout.PropertyField(widthProp);
         EditorGUILayout.PropertyField(heightProp);
         EditorGUILayout.PropertyField(cellSizeProp);
+        EditorGUILayout.PropertyField(vehicleCountProp);
+        //EditorGUILayout.PropertyField(vehiclesProp);
         EditorGUILayout.PropertyField(countdownProp);
         if (EditorGUI.EndChangeCheck())
         {
@@ -55,6 +62,7 @@ public class LevelDataEditor : Editor
 
         // NEW: Draw live counts of materials/colors used by passenger cells
         DrawColorCounts();
+        SetVehicleList();
         EditorGUILayout.Space();
         EditorGUILayout.LabelField("Grid Editor (top row first)", EditorStyles.boldLabel);
 
@@ -180,7 +188,7 @@ public class LevelDataEditor : Editor
         Dictionary<Material, int> matCounts = new Dictionary<Material, int>();
         Dictionary<Color, int> colorCounts = new Dictionary<Color, int>();
 
-        int totalPassengers = 0;
+        totalPassengers = 0;
 
         int w = level.width;
         int h = level.height;
@@ -255,5 +263,25 @@ public class LevelDataEditor : Editor
         }
 
         EditorGUILayout.EndVertical();
+    }
+
+    // SetVehicleList function will have (totalPassengers / 3) vehicles
+    private void SetVehicleList()
+    {
+        int desiredCount = Mathf.Max(1, totalPassengers / 3);
+        if (level.vehicleCount != desiredCount)
+        {
+            level.vehicleCount = desiredCount;
+            EditorUtility.SetDirty(level);
+        }
+        if (level.vehicles == null)
+            level.vehicles = new List<GameObject>();
+        //level.vehicles = new List<Vehicle>();
+        while (level.vehicles.Count < desiredCount)
+            level.vehicles.Add(null);
+        while (level.vehicles.Count > desiredCount)
+            level.vehicles.RemoveAt(level.vehicles.Count - 1);
+        // Draw the vehicle list property
+        EditorGUILayout.PropertyField(vehiclesProp, new GUIContent("Vehicles"), true);
     }
 }

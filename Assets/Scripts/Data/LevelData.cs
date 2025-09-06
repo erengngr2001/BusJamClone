@@ -33,6 +33,9 @@ public class LevelData : ScriptableObject
     // to set the passenger's material at runtime (use GetCellMaterial in spawner).
     public List<Material> cellMaterials = new List<Material>();
 
+    public List<GameObject> vehicles = new List<GameObject>();
+    public int vehicleCount;
+
     // Unity callback in the editor when values change — keeps the list in sync
     private void OnValidate()
     {
