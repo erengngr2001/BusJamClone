@@ -175,8 +175,13 @@ public class LevelData : ScriptableObject
         return pipeData[idx];
     }
 
-    public float GetRemaniningTime()
+    public float GetCountdownTime()
     {
         return countdown;
     }
+
+    //public void SetRemainingTime(float remaining)
+    //{
+    //    countdown = Mathf.Max(0f, remaining);
+    //}
 }

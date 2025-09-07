@@ -353,6 +353,7 @@ public class GridSpawner : MonoBehaviour
     // Event triggered by Passenger when clicked
     public void OnPassengerClicked(Passenger clicked)
     {
+        GameManager.Instance?.SetGameState(GameManager.GameState.Running);
         HandleClick(clicked);
     }
 
@@ -361,15 +362,22 @@ public class GridSpawner : MonoBehaviour
         if (clicked.isReachable)
         {
             // Further actions for reachable passenger can be added here
-            Debug.Log($"[GridSpawner] Clicked reachable passenger at ({clicked.gridCoord.x},{clicked.gridCoord.y}).");
-            if (_waitingLineCount >= _waitingSlots.Length || level.GetRemaniningTime() <= 0)
+            //Debug.Log($"[GridSpawner] Clicked reachable passenger at ({clicked.gridCoord.x},{clicked.gridCoord.y}).");
+            if (_waitingLineCount >= _waitingSlots.Length)
             {
-                Debug.Log("GAME OVER - LOOOOSEEEERRRRR");
+                //Debug.Log("GAME OVER - LOOOOSEEEERRRRR");
+                GameManager.Instance?.Lose("Waiting line is full");
                 return;
             }
             else
             {
                 AddToWaitingLine(clicked);
+            }
+            if (GameManager.Instance?.GetRemainingTime() <= 0)
+            {
+                Debug.Log("[GridSpawner] Attempted to add when time already expired.");
+                GameManager.Instance?.Lose("Time expired");
+                return;
             }
         }
         else
@@ -380,7 +388,7 @@ public class GridSpawner : MonoBehaviour
 
     void AddToWaitingLine(Passenger clicked)
     {
-        Debug.Log("Passenger added to waiting line.");
+        //Debug.Log("Passenger added to waiting line.");
 
         // find first empty slot
         int slotIndex = -1;
@@ -395,7 +403,7 @@ public class GridSpawner : MonoBehaviour
         }
         if (slotIndex == -1)
         {
-            Debug.LogWarning("[GridSpawner] No empty waiting slot found despite count check.");
+            //Debug.LogWarning("[GridSpawner] No empty waiting slot found despite count check.");
             return;
         }
 
@@ -425,7 +433,7 @@ public class GridSpawner : MonoBehaviour
         _waitingSlots[slotIndex] = slot;
         _waitingLineCount++;
 
-        Debug.Log($"Passenger moved to waiting slot {slotIndex}. _waitingLineCount={_waitingLineCount}");
+        //Debug.Log($"Passenger moved to waiting slot {slotIndex}. _waitingLineCount={_waitingLineCount}");
 
         // Trigger the boarding check now that a new passenger is waiting
         ProcessBoarding();
@@ -507,12 +515,16 @@ public class GridSpawner : MonoBehaviour
                         if (slot.placeholder != null) slot.placeholder.SetActive(true);
                         slot.slotCell.ClearOccupyingObject();
                         _waitingLineCount--;
+                        passengerCount--;
 
                         passengerBoarded = true;
                     }
                 }
             }
         }
+
+        // After boarding attempts, let GameManager check if game is won
+        GameManager.Instance?.EvaluateGameState();
     }
 
     public void SetGridCell(GridCell cell)

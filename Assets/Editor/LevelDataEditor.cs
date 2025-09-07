@@ -415,6 +415,7 @@ public class LevelDataEditor : Editor
 
             EditorGUI.BeginChangeCheck();
             int newPool = EditorGUILayout.IntField("Pool Size", poolSizeProp.intValue);
+            //Debug.Log($"Editing pipe at ({px},{py}) with current pool size {poolSizeProp.intValue}");
             if (newPool < 0) newPool = 0;
             if (EditorGUI.EndChangeCheck())
             {

@@ -150,6 +150,7 @@ public class Pipe : MonoBehaviour
         // get pipe config from level data
         PipeData pd = GridSpawner.Instance.level.GetPipeData(x, y);
         int configuredSize = pd != null ? pd.poolSize : pipePoolSize;
+        GridSpawner.passengerCount += configuredSize;
         List<Material> configuredMats = (pd != null && pd.materials != null) ? pd.materials : null;
 
         // cleanup if previously created
