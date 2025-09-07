@@ -69,17 +69,6 @@ public class GridSpawner : MonoBehaviour
         ComputePathsForAllPassengers();
     }
 
-    //private void Start()
-    //{
-    //    if (passengerSpawnCoords == null || passengerSpawnCoords.Count == 0)
-    //    {
-    //        PreparePassengerList();
-    //    }
-    //    SpawnPassengers();
-    //    //Debug.Log($"[GridSpawner] Spawned {passengerCount} passenger groups.");
-    //    ComputePathsForAllPassengers();
-    //}
-
     private void GenerateGridData()
     {
         if (level == null)
@@ -243,67 +232,17 @@ public class GridSpawner : MonoBehaviour
         }
     }
 
-
-
-
-
     private float GetPipeRotationYFromLevel(int x, int y)
     {
-        if (level == null) return 0f;
+        if (level == null || level.pipeData == null) return 0f;
+        int idx = y * level.width + x;
+        if (idx < 0 || idx >= level.pipeData.Count) return 0f;
+        var pd = level.pipeData[idx];
+        if (pd == null) return 0f;
 
-        // Try to find a method named GetPipeData(int,int)
-        var lvlType = level.GetType();
-        var getPipeDataMethod = lvlType.GetMethod("GetPipeData", new Type[] { typeof(int), typeof(int) });
-        if (getPipeDataMethod == null) return 0f;
-
-        try
-        {
-            object pdObj = getPipeDataMethod.Invoke(level, new object[] { x, y });
-            if (pdObj == null) return 0f;
-
-            // Look for a field or property called "rotationY" (case-sensitive). Try field first.
-            var pdType = pdObj.GetType();
-            var rotField = pdType.GetField("rotationY");
-            if (rotField != null)
-            {
-                object val = rotField.GetValue(pdObj);
-                if (val != null) return ConvertToFloatSafe(val);
-            }
-
-            var rotProp = pdType.GetProperty("rotationY");
-            if (rotProp != null)
-            {
-                object val = rotProp.GetValue(pdObj);
-                if (val != null) return ConvertToFloatSafe(val);
-            }
-        }
-        catch (System.Exception ex)
-        {
-            Debug.LogWarning($"GetPipeRotationYFromLevel reflection failed: {ex.Message}");
-        }
-
-        return 0f;
+        // assume PipeData has a public float rotationY
+        return pd.rotationY;
     }
-
-    private float ConvertToFloatSafe(object val)
-    {
-        if (val == null) return 0f;
-        if (val is float f) return f;
-        if (val is double d) return (float)d;
-        if (val is int i) return (float)i;
-        float parsed;
-        if (float.TryParse(val.ToString(), out parsed)) return parsed;
-        return 0f;
-    }
-
-
-
-
-
-
-
-
-
 
     public void SpawnPassengers()
     {

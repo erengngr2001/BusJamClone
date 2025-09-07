@@ -174,51 +174,26 @@ public class Pipe : MonoBehaviour
             // route clicks to this pipe (so pipe knows which pool to advance)
             passengerComp.onClickedByPlayer = HandlePipePassengerClicked;
 
+            Renderer rend = p.GetComponentInChildren<Renderer>();
 
-
-
-
-            // assign material if configured
-            if (configuredMats != null && i < configuredMats.Count && configuredMats[i] != null)
+            if (rend == null)
             {
-                // try to find Body child like you do elsewhere
-                Transform body = p.transform.Find("Body");
-                Renderer bodyRenderer = null;
-                if (body != null) bodyRenderer = body.GetComponent<Renderer>();
-                if (bodyRenderer == null)
-                {
-                    // fallback to Any child renderer
-                    bodyRenderer = p.GetComponentInChildren<Renderer>();
-                }
-
-                if (bodyRenderer != null)
-                {
-                    bodyRenderer.material = configuredMats[i];
-                    // refresh color manager (if present) to pick up the new material color
-                    var pcm = p.GetComponent<PassengerColorManager>();
-                    if (pcm != null)
-                    {
-                        // call your existing RefreshOriginalColor if present; otherwise just ApplyReachability
-                        // we call ApplyReachability(true) to update visuals (passengers in pipe are visible when released)
-                        try
-                        {
-                            var refresh = pcm.GetType().GetMethod("RefreshOriginalColor");
-                            if (refresh != null) refresh.Invoke(pcm, null);
-                        }
-                        catch { /* ignore reflection failure */ }
-
-                        pcm.ApplyReachability(passengerComp != null ? passengerComp.isReachable : true);
-                    }
-                }
+                rend = p.GetComponentInChildren<Renderer>();
             }
 
+            if (rend != null)
+            {
+                rend.material = configuredMats[i];
+                // refresh color manager to pick up the new material color
+                var pcm = p.GetComponent<PassengerColorManager>();
+                if (pcm != null)
+                {
+                    var refresh = pcm.GetType().GetMethod("RefreshOriginalColor");
+                    if (refresh != null) refresh.Invoke(pcm, null);
 
-
-
-
-
-
-
+                    pcm.ApplyReachability(passengerComp != null ? passengerComp.isReachable : true);
+                }
+            }
 
             // The front one is visible & interactable, others are hidden (both collider and visibility inactive)
             if (i == 0)
