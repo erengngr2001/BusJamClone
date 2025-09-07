@@ -16,6 +16,7 @@ public class Pipe : MonoBehaviour
 
     [HideInInspector] public int x;
     [HideInInspector] public int y;
+    [HideInInspector] public float rotationY = 0f;
 
     // simple guard to avoid concurrently starting multiple release coroutines for same pipe
     private bool _releaseInProgress = false;
@@ -29,6 +30,17 @@ public class Pipe : MonoBehaviour
     {
         this.x = x;
         this.y = y;
+
+        if (GridSpawner.Instance != null && GridSpawner.Instance.level != null)
+        {
+            PipeData pd = GridSpawner.Instance.level.GetPipeData(x, y);
+            if (pd != null)
+            {
+                // apply Y rotation in degrees
+                transform.localRotation = Quaternion.Euler(0f, pd.rotationY, 0f);
+            }
+        }
+
         TryCreateSpawnPoint();
     }
 
@@ -49,11 +61,6 @@ public class Pipe : MonoBehaviour
 
         // Create the empty child and place it forward by cellSize in local space
         GameObject go = new GameObject(SPAWN_POINT_NAME);
-        //// parent without preserving world position so localPosition is applied predictably
-        //go.transform.SetParent(this.transform, false);
-        ////go.transform.localPosition = Vector3.forward * cellSize;
-        //go.transform.localRotation = Quaternion.identity;
-        //go.transform.position = this.transform.position + Vector3.forward * cellSize;
 
         go.transform.SetParent(this.transform, false);      // keep as local child
         go.transform.localPosition = Vector3.forward * cellSize;
@@ -117,45 +124,7 @@ public class Pipe : MonoBehaviour
             }
         }
 
-
-
-
-        //float pipeX = this.transform.position.x;
-        //float pipeZ = this.transform.position.z; // z is y in grid terms
-        //float psgX = _passengerSpawnPoint.position.x;
-        //float psgZ = _passengerSpawnPoint.position.z;
-
-        ////int cellX = -1;
-        ////int cellY = -1;
-        ////GridCell psgSpawnerCell = null;
-
-        //if (pipeX == psgX && pipeZ < psgZ)
-        //{
-        //    return new GridCell(pipeCell.x, pipeCell.y + 1, _passengerSpawnPoint.position);
-        //}
-        //else if (pipeX == psgX && pipeZ > psgZ)
-        //{
-        //    return new GridCell(pipeCell.x, pipeCell.y - 1, _passengerSpawnPoint.position);
-        //}
-        //else if (pipeX < psgX && pipeZ == psgZ)
-        //{
-        //    return new GridCell(pipeCell.x + 1, pipeCell.y, _passengerSpawnPoint.position);
-        //}
-        //else if (pipeX > psgX && pipeZ == psgZ)
-        //{
-        //    return new GridCell(pipeCell.x - 1, pipeCell.y, _passengerSpawnPoint.position);
-        //}
-        //else
-        //{
-        //    Debug.LogWarning($"Pipe at ({x},{y}) has a misaligned PassengerSpawnPoint.");
-        //    return null;
-        //}
-
     }
-
-
-
-
 
     /// Create a local pool of passengers as children of the spawn point.
     /// Only the front passenger (index 0) will be active & interactable at first.
@@ -178,11 +147,20 @@ public class Pipe : MonoBehaviour
             return;
         }
 
+        // get pipe config from level data
+        PipeData pd = GridSpawner.Instance.level.GetPipeData(x, y);
+        int configuredSize = pd != null ? pd.poolSize : pipePoolSize;
+        List<Material> configuredMats = (pd != null && pd.materials != null) ? pd.materials : null;
+
         // cleanup if previously created
         foreach (var go in _passengerPool)
             if (go != null) Destroy(go);
         _passengerPool.Clear();
         _frontIndex = 0;
+
+        // clamp non-negative
+        configuredSize = Mathf.Max(0, configuredSize);
+        pipePoolSize = configuredSize; // sync instance value
 
         for (int i = 0; i < pipePoolSize; i++)
         {
@@ -195,6 +173,52 @@ public class Pipe : MonoBehaviour
             passengerComp.InitializeGridCoord(-1, -1);
             // route clicks to this pipe (so pipe knows which pool to advance)
             passengerComp.onClickedByPlayer = HandlePipePassengerClicked;
+
+
+
+
+
+            // assign material if configured
+            if (configuredMats != null && i < configuredMats.Count && configuredMats[i] != null)
+            {
+                // try to find Body child like you do elsewhere
+                Transform body = p.transform.Find("Body");
+                Renderer bodyRenderer = null;
+                if (body != null) bodyRenderer = body.GetComponent<Renderer>();
+                if (bodyRenderer == null)
+                {
+                    // fallback to Any child renderer
+                    bodyRenderer = p.GetComponentInChildren<Renderer>();
+                }
+
+                if (bodyRenderer != null)
+                {
+                    bodyRenderer.material = configuredMats[i];
+                    // refresh color manager (if present) to pick up the new material color
+                    var pcm = p.GetComponent<PassengerColorManager>();
+                    if (pcm != null)
+                    {
+                        // call your existing RefreshOriginalColor if present; otherwise just ApplyReachability
+                        // we call ApplyReachability(true) to update visuals (passengers in pipe are visible when released)
+                        try
+                        {
+                            var refresh = pcm.GetType().GetMethod("RefreshOriginalColor");
+                            if (refresh != null) refresh.Invoke(pcm, null);
+                        }
+                        catch { /* ignore reflection failure */ }
+
+                        pcm.ApplyReachability(passengerComp != null ? passengerComp.isReachable : true);
+                    }
+                }
+            }
+
+
+
+
+
+
+
+
 
             // The front one is visible & interactable, others are hidden (both collider and visibility inactive)
             if (i == 0)

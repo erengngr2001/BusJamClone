@@ -229,8 +229,10 @@ public class GridSpawner : MonoBehaviour
                     GridCell cell = GetGridCell(x, y);
                     if (cell != null && !cell.IsOccupied())
                     {
+                        float rotY = GetPipeRotationYFromLevel(x, y);
+                        Quaternion rotation = Quaternion.Euler(0f, rotY, 0f);
                         Vector3 spawnPos = cell.worldPos + new Vector3(0f, .55f, 0f);
-                        GameObject pipeInstance = Instantiate(pipePrefab, spawnPos, pipePrefab.transform.rotation, pipeParent);
+                        GameObject pipeInstance = Instantiate(pipePrefab, spawnPos, rotation, pipeParent);
                         pipeInstance.name = $"Pipe_({x},{y})";
                         pipeInstance.GetComponent<Pipe>()?.Initialize(x, y);
                         pipeInstance.GetComponent<Pipe>()?.CreatePassengerPool();
@@ -240,6 +242,68 @@ public class GridSpawner : MonoBehaviour
             }
         }
     }
+
+
+
+
+
+    private float GetPipeRotationYFromLevel(int x, int y)
+    {
+        if (level == null) return 0f;
+
+        // Try to find a method named GetPipeData(int,int)
+        var lvlType = level.GetType();
+        var getPipeDataMethod = lvlType.GetMethod("GetPipeData", new Type[] { typeof(int), typeof(int) });
+        if (getPipeDataMethod == null) return 0f;
+
+        try
+        {
+            object pdObj = getPipeDataMethod.Invoke(level, new object[] { x, y });
+            if (pdObj == null) return 0f;
+
+            // Look for a field or property called "rotationY" (case-sensitive). Try field first.
+            var pdType = pdObj.GetType();
+            var rotField = pdType.GetField("rotationY");
+            if (rotField != null)
+            {
+                object val = rotField.GetValue(pdObj);
+                if (val != null) return ConvertToFloatSafe(val);
+            }
+
+            var rotProp = pdType.GetProperty("rotationY");
+            if (rotProp != null)
+            {
+                object val = rotProp.GetValue(pdObj);
+                if (val != null) return ConvertToFloatSafe(val);
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogWarning($"GetPipeRotationYFromLevel reflection failed: {ex.Message}");
+        }
+
+        return 0f;
+    }
+
+    private float ConvertToFloatSafe(object val)
+    {
+        if (val == null) return 0f;
+        if (val is float f) return f;
+        if (val is double d) return (float)d;
+        if (val is int i) return (float)i;
+        float parsed;
+        if (float.TryParse(val.ToString(), out parsed)) return parsed;
+        return 0f;
+    }
+
+
+
+
+
+
+
+
+
 
     public void SpawnPassengers()
     {

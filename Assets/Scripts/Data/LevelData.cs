@@ -12,6 +12,14 @@ public enum CellType
     Pipe
 }
 
+[Serializable]
+public class PipeData
+{
+    public int poolSize = 3;
+    public List<Material> materials = new List<Material>();
+    public float rotationY = 0f;
+}
+
 [CreateAssetMenu(fileName = "LevelData", menuName = "Level/Simple Level Data")]
 public class LevelData : ScriptableObject
 {
@@ -29,7 +37,9 @@ public class LevelData : ScriptableObject
     // parallel per-cell colors (used only when the cell is a passenger type)
     public List<Color> cellColors = new List<Color>();
 
-    // If assigned, spawner/other systems can use these
+    // per-cell pipe data (pool size + materials list)
+    public List<PipeData> pipeData = new List<PipeData>();
+
     // to set the passenger's material at runtime (use GetCellMaterial in spawner).
     public List<Material> cellMaterials = new List<Material>();
 
@@ -49,6 +59,7 @@ public class LevelData : ScriptableObject
         if (cells == null) cells = new List<CellType>();
         if (cellColors == null) cellColors = new List<Color>();
         if (cellMaterials == null) cellMaterials = new List<Material>();
+        if (pipeData == null) pipeData = new List<PipeData>();
 
         if (cells.Count > target)
         {
@@ -80,6 +91,20 @@ public class LevelData : ScriptableObject
         {
             while (cellMaterials.Count < target)
                 cellMaterials.Add(null); // default no material
+        }
+
+        // Resize pipeData (each element holds pool size + list of materials)
+        if (pipeData.Count > target)
+            pipeData.RemoveRange(target, pipeData.Count - target);
+        else
+        {
+            while (pipeData.Count < target)
+            {
+                var pd = new PipeData();
+                pd.poolSize = 3;
+                pd.materials = new List<Material>();
+                pipeData.Add(pd);
+            }
         }
     }
 
@@ -139,6 +164,15 @@ public class LevelData : ScriptableObject
         int idx = y * width + x;
         if (idx < 0 || idx >= cellMaterials.Count) return;
         cellMaterials[idx] = mat;
+    }
+
+    // Get pipe data for a cell (may return default PipeData)
+    public PipeData GetPipeData(int x, int y)
+    {
+        if (x < 0 || y < 0 || x >= width || y >= height) return null;
+        int idx = y * width + x;
+        if (idx < 0 || idx >= pipeData.Count) return null;
+        return pipeData[idx];
     }
 
     public float GetRemaniningTime()

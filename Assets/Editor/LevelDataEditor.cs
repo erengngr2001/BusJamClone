@@ -15,6 +15,7 @@ public class LevelDataEditor : Editor
     private SerializedProperty vehiclesProp;
     private SerializedProperty cellColorsProp;
     private SerializedProperty cellMaterialsProp;
+    private SerializedProperty pipeDataProp;
     private SerializedProperty countdownProp;
     private int totalPassengers;
 
@@ -29,6 +30,7 @@ public class LevelDataEditor : Editor
         vehiclesProp = serializedObject.FindProperty("vehicles");
         cellColorsProp = serializedObject.FindProperty("cellColors");
         cellMaterialsProp = serializedObject.FindProperty("cellMaterials");
+        pipeDataProp = serializedObject.FindProperty("pipeData");
         countdownProp = serializedObject.FindProperty("countdown");
 
         // ensure cells list is valid on enable
@@ -45,7 +47,6 @@ public class LevelDataEditor : Editor
         EditorGUILayout.PropertyField(heightProp);
         EditorGUILayout.PropertyField(cellSizeProp);
         EditorGUILayout.PropertyField(vehicleCountProp);
-        //EditorGUILayout.PropertyField(vehiclesProp);
         EditorGUILayout.PropertyField(countdownProp);
         if (EditorGUI.EndChangeCheck())
         {
@@ -126,6 +127,8 @@ public class LevelDataEditor : Editor
                 SerializedProperty cellProp = cellsProp.GetArrayElementAtIndex(idx);
                 SerializedProperty colorProp = cellColorsProp.GetArrayElementAtIndex(idx);
                 SerializedProperty materialProp = cellMaterialsProp.GetArrayElementAtIndex(idx);
+                SerializedProperty pdProp = pipeDataProp.GetArrayElementAtIndex(idx);
+
                 int enumVal = cellProp.enumValueIndex;
 
                 // Display a compact enum popup
@@ -165,6 +168,55 @@ public class LevelDataEditor : Editor
                     }
                     EditorGUILayout.EndVertical();
                 }
+                else if (cellType == CellType.Pipe)
+                {
+                    // Show small pipe controls: pool size and a foldout to set materials
+                    EditorGUILayout.BeginVertical(GUILayout.Width(120));
+                    SerializedProperty poolSizeProp = pdProp.FindPropertyRelative("poolSize");
+                    SerializedProperty matsProp = pdProp.FindPropertyRelative("materials");
+                    SerializedProperty rotProp = pdProp.FindPropertyRelative("rotationY"); 
+
+                    EditorGUI.BeginChangeCheck();
+                    int newPool = EditorGUILayout.IntField(GUIContent.none, poolSizeProp.intValue, GUILayout.Width(56), GUILayout.Height(16));
+                    if (newPool < 0) newPool = 0;
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        Undo.RecordObject(level, "Change Pipe Pool Size");
+                        poolSizeProp.intValue = newPool;
+                        // ensure materials array matches new size
+                        while (matsProp.arraySize < newPool)
+                            matsProp.InsertArrayElementAtIndex(matsProp.arraySize);
+                        while (matsProp.arraySize > newPool)
+                            matsProp.DeleteArrayElementAtIndex(matsProp.arraySize - 1);
+                        serializedObject.ApplyModifiedProperties();
+                        EditorUtility.SetDirty(level);
+                    }
+
+                    // edit pipe rotation
+                    EditorGUI.BeginChangeCheck();
+                    float newRot = 0f;
+                    if (rotProp != null) newRot = rotProp.floatValue;
+                    newRot = EditorGUILayout.FloatField(GUIContent.none, newRot, GUILayout.Width(56), GUILayout.Height(16));
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        Undo.RecordObject(level, "Change Pipe Rotation");
+                        if (rotProp != null)
+                            rotProp.floatValue = newRot;
+                        serializedObject.ApplyModifiedProperties();
+                        EditorUtility.SetDirty(level);
+                    }
+
+                    // small foldout style (inline material fields are too wide in grid; show a tiny button to expand full editor)
+                    if (GUILayout.Button("Edit Pipe", GUILayout.Width(56), GUILayout.Height(16)))
+                    {
+                        // open a small popup window — to keep things simple here, we just expand a larger inspector area below the grid
+                        // We will draw the full pipe data below the grid after the main grid loop by storing the last clicked pipe index.
+                        // Simpler: open inspector selection for LevelData and let user scroll — but we provide inline small material slots in expanded area below.
+                        // For now we just show nothing inline, user can edit pipe materials from the "Pipe Details" section below.
+                    }
+
+                    EditorGUILayout.EndVertical();
+                }
                 else
                 {
                     // maintain consistent spacing for non-color cells
@@ -173,6 +225,8 @@ public class LevelDataEditor : Editor
             }
             EditorGUILayout.EndHorizontal();
         }
+
+        DrawFullPipeDetails();
     }
 
     /// <summary>
@@ -188,6 +242,7 @@ public class LevelDataEditor : Editor
         Dictionary<Material, int> matCounts = new Dictionary<Material, int>();
         Dictionary<Color, int> colorCounts = new Dictionary<Color, int>();
 
+        int pipeColorlessCount = 0; // number of pipe pool entries with no material assigned
         totalPassengers = 0;
 
         int w = level.width;
@@ -212,6 +267,51 @@ public class LevelDataEditor : Editor
                     Color col = (idx < level.cellColors.Count) ? level.cellColors[idx] : Color.white;
                     if (!colorCounts.ContainsKey(col)) colorCounts[col] = 0;
                     colorCounts[col]++;
+                }
+            }
+        }
+
+        // Count pipe pool passengers: include poolSize in totalPassengers and include their materials in matCounts
+        if (pipeDataProp != null)
+        {
+            // iterate pipeDataProp entries; check the corresponding cell is Pipe
+            int pipeEntries = pipeDataProp.arraySize;
+            for (int idx = 0; idx < pipeEntries; idx++)
+            {
+                if (idx >= cellsProp.arraySize) break;
+                var cellType = (CellType)cellsProp.GetArrayElementAtIndex(idx).enumValueIndex;
+                if (cellType != CellType.Pipe) continue;
+
+                SerializedProperty pdProp = pipeDataProp.GetArrayElementAtIndex(idx);
+                SerializedProperty poolSizeProp = pdProp.FindPropertyRelative("poolSize");
+                SerializedProperty matsProp = pdProp.FindPropertyRelative("materials");
+
+                int poolSize = Mathf.Max(0, poolSizeProp != null ? poolSizeProp.intValue : 0);
+                totalPassengers += poolSize;
+
+                // Count materials listed for this pipe. We iterate the materials array (it should be sized to poolSize)
+                if (matsProp != null)
+                {
+                    for (int m = 0; m < matsProp.arraySize; m++)
+                    {
+                        SerializedProperty el = matsProp.GetArrayElementAtIndex(m);
+                        Material mat = el.objectReferenceValue as Material;
+                        if (mat != null)
+                        {
+                            if (!matCounts.ContainsKey(mat)) matCounts[mat] = 0;
+                            matCounts[mat]++;
+                        }
+                        else
+                        {
+                            // material not assigned for this pool slot
+                            pipeColorlessCount++;
+                        }
+                    }
+                }
+                else
+                {
+                    // No materials array found; treat all pool entries as colorless
+                    pipeColorlessCount += poolSize;
                 }
             }
         }
@@ -256,6 +356,14 @@ public class LevelDataEditor : Editor
             }
         }
 
+        // Pipe entries that had no material assigned
+        if (pipeColorlessCount > 0)
+        {
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Pipe pool (no material):", EditorStyles.miniBoldLabel);
+            EditorGUILayout.LabelField($"× {pipeColorlessCount}");
+        }
+
         // Nothing case
         if (matCounts.Count == 0 && colorCounts.Count == 0)
         {
@@ -283,5 +391,81 @@ public class LevelDataEditor : Editor
             level.vehicles.RemoveAt(level.vehicles.Count - 1);
         // Draw the vehicle list property
         EditorGUILayout.PropertyField(vehiclesProp, new GUIContent("Vehicles"), true);
+    }
+
+    void DrawFullPipeDetails()
+    {
+        // After drawing the grid, draw full pipe details (for all pipe cells) to allow editing materials lists
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Pipe Details (per Pipe cell)", EditorStyles.boldLabel);
+        for (int idx = 0; idx < pipeDataProp.arraySize; idx++)
+        {
+            if (idx >= cellsProp.arraySize) break;
+            var t = (CellType)cellsProp.GetArrayElementAtIndex(idx).enumValueIndex;
+            if (t != CellType.Pipe) continue;
+
+            int px = idx % level.width;
+            int py = idx / level.width;
+            SerializedProperty pd = pipeDataProp.GetArrayElementAtIndex(idx);
+            SerializedProperty poolSizeProp = pd.FindPropertyRelative("poolSize");
+            SerializedProperty matsProp = pd.FindPropertyRelative("materials");
+
+            EditorGUILayout.BeginVertical(GUI.skin.box);
+            EditorGUILayout.LabelField($"Pipe at ({px},{py})", EditorStyles.boldLabel);
+
+            EditorGUI.BeginChangeCheck();
+            int newPool = EditorGUILayout.IntField("Pool Size", poolSizeProp.intValue);
+            if (newPool < 0) newPool = 0;
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(level, "Change Pipe Pool Size (Details)");
+                poolSizeProp.intValue = newPool;
+                // resize materials array accordingly
+                while (matsProp.arraySize < newPool)
+                    matsProp.InsertArrayElementAtIndex(matsProp.arraySize);
+                while (matsProp.arraySize > newPool && matsProp.arraySize > 0)
+                    matsProp.DeleteArrayElementAtIndex(matsProp.arraySize - 1);
+                serializedObject.ApplyModifiedProperties();
+                EditorUtility.SetDirty(level);
+            }
+            SerializedProperty rotProp = pd.FindPropertyRelative("rotationY");
+
+            // rotation Y field - only if property exists
+            if (rotProp != null)
+            {
+                EditorGUI.BeginChangeCheck();
+                float newRotation = EditorGUILayout.FloatField("Rotation Y (deg)", rotProp.floatValue);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    Undo.RecordObject(level, "Change Pipe Rotation (Details)");
+                    rotProp.floatValue = newRotation;
+                    serializedObject.ApplyModifiedProperties();
+                    EditorUtility.SetDirty(level);
+                }
+            }
+            else
+            {
+                EditorGUILayout.LabelField("Rotation Y (deg): (not available)");
+            }
+
+
+            // Draw materials list with indices
+            EditorGUILayout.LabelField("Passenger Materials:");
+            for (int i = 0; i < matsProp.arraySize; i++)
+            {
+                SerializedProperty el = matsProp.GetArrayElementAtIndex(i);
+                EditorGUI.BeginChangeCheck();
+                Object newMat = EditorGUILayout.ObjectField($"#{i}", el.objectReferenceValue, typeof(Material), false);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    Undo.RecordObject(level, "Change Pipe Passenger Material");
+                    el.objectReferenceValue = (Material)newMat;
+                    serializedObject.ApplyModifiedProperties();
+                    EditorUtility.SetDirty(level);
+                }
+            }
+
+            EditorGUILayout.EndVertical();
+        }
     }
 }
