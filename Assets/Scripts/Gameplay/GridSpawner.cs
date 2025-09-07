@@ -62,7 +62,8 @@ public class GridSpawner : MonoBehaviour
         {
             PreparePassengerList();
         }
-        SpawnObstacle();
+        SpawnObstacles();
+        SpawnPipes();
         SpawnPassengers();
         //Debug.Log($"[GridSpawner] Spawned {passengerCount} passenger groups.");
         ComputePathsForAllPassengers();
@@ -161,7 +162,7 @@ public class GridSpawner : MonoBehaviour
         }
     }
 
-    void SpawnObstacle()
+    void SpawnObstacles()
     {
         if (passengerPrefab == null)
         {
@@ -199,6 +200,44 @@ public class GridSpawner : MonoBehaviour
             }
         }
 
+    }
+
+    void SpawnPipes()
+    {
+        if (pipePrefab == null)
+        {
+            Debug.LogError("Pipe Prefab not assigned!");
+            return;
+        }
+        Transform existing = transform.Find("Pipes");
+        Transform pipeParent;
+        if (existing != null)
+        {
+            pipeParent = existing;
+        }
+        else
+        {
+            pipeParent = new GameObject("Pipes").transform;
+            pipeParent.SetParent(this.transform);
+        }
+        for (int x = 0; x < level.width; x++)
+        {
+            for (int y = 0; y < level.height; y++)
+            {
+                if (level.GetCell(x, y) == CellType.Pipe)
+                { 
+                    GridCell cell = GetGridCell(x, y);
+                    if (cell != null && !cell.IsOccupied())
+                    {
+                        Vector3 spawnPos = cell.worldPos + new Vector3(0f, .55f, 0f);
+                        GameObject pipeInstance = Instantiate(pipePrefab, spawnPos, pipePrefab.transform.rotation, pipeParent);
+                        pipeInstance.name = $"Pipe_({x},{y})";
+                        pipeInstance.GetComponent<Pipe>()?.Initialize(x, y);
+                        cell.SetOccupyingObject(pipeInstance); // Mark the cell as occupied
+                    }
+                }
+            }
+        }
     }
 
     public void SpawnPassengers()
@@ -503,6 +542,14 @@ public class GridSpawner : MonoBehaviour
 
             // Snap the passenger to the new slot's position
             passengerObj.transform.position = slot.slotCell.worldPos + new Vector3(0f, .55f, 0f);
+        }
+    }
+
+    public void SetGridCell(GridCell cell)
+    {
+        if (cell.x >= 0 && cell.y >= 0 && cell.x < level.width && cell.y < level.height)
+        {
+            _grid[cell.x, cell.y] = cell;
         }
     }
 
