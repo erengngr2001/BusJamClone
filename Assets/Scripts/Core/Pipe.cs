@@ -17,6 +17,9 @@ public class Pipe : MonoBehaviour
     [HideInInspector] public int x;
     [HideInInspector] public int y;
 
+    // simple guard to avoid concurrently starting multiple release coroutines for same pipe
+    private bool _releaseInProgress = false;
+
     //private void Awake()
     //{
     //    TryCreateSpawnPoint();
@@ -217,43 +220,54 @@ public class Pipe : MonoBehaviour
         if (clicked == null) return;
 
         // Ask GridSpawner to add this passenger to the waiting line.
-        //GridSpawner.Instance?.AddPipePassengerToWaiting(clicked);
         GridSpawner.Instance?.HandleClick(clicked);
 
         // Remove or mark the front passenger as used and enable the next one
         if (_passengerPool.Count == 0) return;
 
-        // If the clicked passenger is indeed our current front, advance.
-        // We assume the frontIndex passenger is the front GameObject in the pool.
-        if (_frontIndex < _passengerPool.Count && _passengerPool[_frontIndex] == clicked.gameObject)
+        if (_frontIndex < _passengerPool.Count)
         {
+            _passengerPool[_frontIndex] = null; // mark consumed
             _frontIndex++;
         }
-        else
-        {
-            // if it's not located exactly at frontIndex try to remove by object reference
-            int found = _passengerPool.IndexOf(clicked.gameObject);
-            if (found >= 0 && found < _frontIndex)
-            {
-                // already consumed earlier; nothing to do
-            }
-            else if (found >= 0)
-            {
-                _passengerPool[found] = null; // mark consumed
-            }
-        }
 
-        // Activate next available passenger (if any)
+        // skip any nulls to find next available index
         while (_frontIndex < _passengerPool.Count && (_passengerPool[_frontIndex] == null))
             _frontIndex++;
 
+        // Start delayed release of the next passenger (if any)
         if (_frontIndex < _passengerPool.Count && _passengerPool[_frontIndex] != null)
         {
-            var next = _passengerPool[_frontIndex];
-            next.SetActive(true);
-            var nextComp = next.GetComponent<Passenger>();
-            nextComp?.SetInteractable(true);
+            // prevent overlapping coroutines for this pipe
+            if (!_releaseInProgress)
+                StartCoroutine(ReleaseNextAfterDelay());
         }
+    }
+
+    // For a small delay for revealing next passenger in the pipe
+    private IEnumerator ReleaseNextAfterDelay()
+    {
+        _releaseInProgress = true;
+
+        // small visual delay
+        yield return new WaitForSeconds(0.5f);
+
+        // find next non-null passenger and enable it
+        while (_frontIndex < _passengerPool.Count && (_passengerPool[_frontIndex] == null))
+            _frontIndex++;
+
+        if (_frontIndex < _passengerPool.Count)
+        {
+            var next = _passengerPool[_frontIndex];
+            if (next != null)
+            {
+                next.SetActive(true);
+                var nextComp = next.GetComponent<Passenger>();
+                nextComp?.SetInteractable(true);
+            }
+        }
+
+        _releaseInProgress = false;
     }
 
 }
