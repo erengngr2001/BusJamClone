@@ -233,7 +233,8 @@ public class GridSpawner : MonoBehaviour
                         GameObject pipeInstance = Instantiate(pipePrefab, spawnPos, pipePrefab.transform.rotation, pipeParent);
                         pipeInstance.name = $"Pipe_({x},{y})";
                         pipeInstance.GetComponent<Pipe>()?.Initialize(x, y);
-                        cell.SetOccupyingObject(pipeInstance); // Mark the cell as occupied
+                        pipeInstance.GetComponent<Pipe>()?.CreatePassengerPool();
+                        cell.SetOccupyingObject(pipeInstance);
                     }
                 }
             }
@@ -349,6 +350,11 @@ public class GridSpawner : MonoBehaviour
     // Event triggered by Passenger when clicked
     public void OnPassengerClicked(Passenger clicked)
     {
+        HandleClick(clicked);
+    }
+
+    public void HandleClick(Passenger clicked)
+    {
         if (clicked.isReachable)
         {
             // Further actions for reachable passenger can be added here
@@ -360,65 +366,69 @@ public class GridSpawner : MonoBehaviour
             }
             else
             {
-                Debug.Log("Passenger added to waiting line.");
-
-                // find first empty slot
-                int slotIndex = -1;
-
-                for (int i = 0; i < _waitingSlots.Length; i++)
-                {
-                    if (_waitingSlots[i].occupant == null)
-                    {
-                        slotIndex = i;
-                        break;
-                    }
-                }
-                if (slotIndex == -1)
-                {
-                    Debug.LogWarning("[GridSpawner] No empty waiting slot found despite count check.");
-                    return;
-                }
-
-                WaitingSlot slot = _waitingSlots[slotIndex];
-
-                // Clear original grid cell occupancy
-                GridCell originalCell = GetGridCell(clicked.gridCoord.x, clicked.gridCoord.y);
-                if (originalCell != null)
-                {
-                    originalCell.ClearOccupyingObject();
-                }
-
-                // Move passenger GameObject to waiting slot (no instantiate/destroy)
-                clicked.transform.SetParent(_waitingParent, true);
-                clicked.transform.position = slot.slotCell.worldPos + new Vector3(0f, .55f, 0f);
-
-                // mark passenger as non-interactive and mark its gridCoord as "off-grid"
-                clicked.SetInteractable(false);
-                clicked.SetReachableImmediate(true);
-                clicked.InitializeGridCoord(-1, -1);
-
-                // update slot bookkeeping
-                slot.occupant = clicked.gameObject;
-                if (slot.placeholder != null) slot.placeholder.SetActive(false);
-                slot.slotCell.SetOccupyingObject(clicked.gameObject);
-
-                _waitingSlots[slotIndex] = slot;
-                _waitingLineCount++;
-
-                Debug.Log($"Passenger moved to waiting slot {slotIndex}. _waitingLineCount={_waitingLineCount}");
-
-                // Trigger the boarding check now that a new passenger is waiting
-                ProcessBoarding();
-
-                // Recompute paths for remaining passengers (passengers parent only)
-                ComputePathsForAllPassengers();
-
+                AddToWaitingLine(clicked);
             }
         }
         else
         {
             Debug.Log($"[GridSpawner] Clicked passenger at ({clicked.gridCoord.x},{clicked.gridCoord.y}) but NOT reachable.");
         }
+    }
+
+    void AddToWaitingLine(Passenger clicked)
+    {
+        Debug.Log("Passenger added to waiting line.");
+
+        // find first empty slot
+        int slotIndex = -1;
+
+        for (int i = 0; i < _waitingSlots.Length; i++)
+        {
+            if (_waitingSlots[i].occupant == null)
+            {
+                slotIndex = i;
+                break;
+            }
+        }
+        if (slotIndex == -1)
+        {
+            Debug.LogWarning("[GridSpawner] No empty waiting slot found despite count check.");
+            return;
+        }
+
+        WaitingSlot slot = _waitingSlots[slotIndex];
+
+        // Clear original grid cell occupancy
+        GridCell originalCell = GetGridCell(clicked.gridCoord.x, clicked.gridCoord.y);
+        if (originalCell != null)
+        {
+            originalCell.ClearOccupyingObject();
+        }
+
+        // Move passenger GameObject to waiting slot (no instantiate/destroy)
+        clicked.transform.SetParent(_waitingParent, true);
+        clicked.transform.position = slot.slotCell.worldPos + new Vector3(0f, .55f, 0f);
+
+        // mark passenger as non-interactive and mark its gridCoord as "off-grid"
+        clicked.SetInteractable(false);
+        clicked.SetReachableImmediate(true);
+        clicked.InitializeGridCoord(-1, -1);
+
+        // update slot bookkeeping
+        slot.occupant = clicked.gameObject;
+        if (slot.placeholder != null) slot.placeholder.SetActive(false);
+        slot.slotCell.SetOccupyingObject(clicked.gameObject);
+
+        _waitingSlots[slotIndex] = slot;
+        _waitingLineCount++;
+
+        Debug.Log($"Passenger moved to waiting slot {slotIndex}. _waitingLineCount={_waitingLineCount}");
+
+        // Trigger the boarding check now that a new passenger is waiting
+        ProcessBoarding();
+
+        // Recompute paths for remaining passengers (passengers parent only)
+        ComputePathsForAllPassengers();
     }
 
     void ComputePathsForAllPassengers()
@@ -459,10 +469,7 @@ public class GridSpawner : MonoBehaviour
         return true;
     }
 
-
-    /// <summary>
     /// Checks waiting passengers and boards them onto the front bus if colors match.
-    /// </summary>
     public void ProcessBoarding()
     {
         Vehicle frontBus = VehicleManager.Instance.GetFrontBus();
@@ -502,46 +509,6 @@ public class GridSpawner : MonoBehaviour
                     }
                 }
             }
-        }
-
-        // If at least one passenger boarded, compact the line to remove gaps
-        if (passengerBoarded)
-        {
-            CompactWaitingLine();
-        }
-    }
-
-    /// <summary>
-    /// Reorganizes the waiting line to fill empty slots from the front.
-    /// </summary>
-    private void CompactWaitingLine()
-    {
-        // Get all passengers that are still waiting
-        List<GameObject> remainingPassengers = _waitingSlots
-            .Where(s => s.occupant != null)
-            .Select(s => s.occupant)
-            .ToList();
-
-        // Clear all slots in the data structure
-        for (int i = 0; i < _waitingSlots.Length; i++)
-        {
-            _waitingSlots[i].occupant = null;
-            if (_waitingSlots[i].placeholder != null) _waitingSlots[i].placeholder.SetActive(true);
-            _waitingSlots[i].slotCell.ClearOccupyingObject();
-        }
-
-        // Re-add the passengers to the front of the line
-        for (int i = 0; i < remainingPassengers.Count; i++)
-        {
-            GameObject passengerObj = remainingPassengers[i];
-            WaitingSlot slot = _waitingSlots[i];
-
-            slot.occupant = passengerObj;
-            if (slot.placeholder != null) slot.placeholder.SetActive(false);
-            slot.slotCell.SetOccupyingObject(passengerObj);
-
-            // Snap the passenger to the new slot's position
-            passengerObj.transform.position = slot.slotCell.worldPos + new Vector3(0f, .55f, 0f);
         }
     }
 

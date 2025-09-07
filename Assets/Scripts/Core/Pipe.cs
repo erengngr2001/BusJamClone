@@ -10,6 +10,10 @@ public class Pipe : MonoBehaviour
     [Header("# of Passengers in Pipe")]
     public int pipePoolSize = 3;
 
+    // pool
+    private List<GameObject> _passengerPool = new List<GameObject>();
+    private int _frontIndex = 0;
+
     [HideInInspector] public int x;
     [HideInInspector] public int y;
 
@@ -144,6 +148,112 @@ public class Pipe : MonoBehaviour
         //    return null;
         //}
 
+    }
+
+
+
+
+
+    /// Create a local pool of passengers as children of the spawn point.
+    /// Only the front passenger (index 0) will be active & interactable at first.
+    public void CreatePassengerPool()
+    {
+        if (_passengerSpawnPoint == null)
+        {
+            Debug.LogWarning($"Pipe.CreatePassengerPool: spawn point missing on {name}.");
+            return;
+        }
+        if (GridSpawner.Instance == null)
+        {
+            Debug.LogWarning("Pipe.CreatePassengerPool: GridSpawner.Instance missing.");
+            return;
+        }
+        GameObject passengerPrefab = GridSpawner.Instance.passengerPrefab;
+        if (passengerPrefab == null)
+        {
+            Debug.LogWarning("Pipe.CreatePassengerPool: passengerPrefab not set on GridSpawner.");
+            return;
+        }
+
+        // cleanup if previously created
+        foreach (var go in _passengerPool)
+            if (go != null) Destroy(go);
+        _passengerPool.Clear();
+        _frontIndex = 0;
+
+        for (int i = 0; i < pipePoolSize; i++)
+        {
+            Vector3 spawnPos = _passengerSpawnPoint.position + new Vector3(0f, 0.55f, 0f);
+            GameObject p = Instantiate(passengerPrefab, spawnPos, Quaternion.identity, _passengerSpawnPoint);
+            p.name = $"{name}_Passenger_{i}";
+            var passengerComp = p.GetComponent<Passenger>();
+
+            // ensure off-grid
+            passengerComp.InitializeGridCoord(-1, -1);
+            // route clicks to this pipe (so pipe knows which pool to advance)
+            passengerComp.onClickedByPlayer = HandlePipePassengerClicked;
+
+            // The front one is visible & interactable, others are hidden (both collider and visibility inactive)
+            if (i == 0)
+            {
+                p.SetActive(true);
+                passengerComp?.SetInteractable(true);
+            }
+            else
+            {
+                p.SetActive(false);
+                passengerComp?.SetInteractable(false);
+            }
+
+            _passengerPool.Add(p);
+        }
+    }
+
+
+    /// Called via each passenger's onClickedByPlayer action.
+    /// The pipe forwards the clicked passenger to GridSpawner to add into waiting, then advances the pool (enables the next passenger).
+    public void HandlePipePassengerClicked(Passenger clicked)
+    {
+        if (clicked == null) return;
+
+        // Ask GridSpawner to add this passenger to the waiting line.
+        //GridSpawner.Instance?.AddPipePassengerToWaiting(clicked);
+        GridSpawner.Instance?.HandleClick(clicked);
+
+        // Remove or mark the front passenger as used and enable the next one
+        if (_passengerPool.Count == 0) return;
+
+        // If the clicked passenger is indeed our current front, advance.
+        // We assume the frontIndex passenger is the front GameObject in the pool.
+        if (_frontIndex < _passengerPool.Count && _passengerPool[_frontIndex] == clicked.gameObject)
+        {
+            _frontIndex++;
+        }
+        else
+        {
+            // if it's not located exactly at frontIndex try to remove by object reference
+            int found = _passengerPool.IndexOf(clicked.gameObject);
+            if (found >= 0 && found < _frontIndex)
+            {
+                // already consumed earlier; nothing to do
+            }
+            else if (found >= 0)
+            {
+                _passengerPool[found] = null; // mark consumed
+            }
+        }
+
+        // Activate next available passenger (if any)
+        while (_frontIndex < _passengerPool.Count && (_passengerPool[_frontIndex] == null))
+            _frontIndex++;
+
+        if (_frontIndex < _passengerPool.Count && _passengerPool[_frontIndex] != null)
+        {
+            var next = _passengerPool[_frontIndex];
+            next.SetActive(true);
+            var nextComp = next.GetComponent<Passenger>();
+            nextComp?.SetInteractable(true);
+        }
     }
 
 }

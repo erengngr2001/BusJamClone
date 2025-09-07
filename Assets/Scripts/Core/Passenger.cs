@@ -7,7 +7,11 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(PassengerColorManager))]
 public class Passenger : MonoBehaviour
 {
+    // inside Passenger class (add these fields near the top)
+    public Pipe originPipe = null; // optional origin pipe reference
+
     private bool _interactable = true;
+    private Collider _collider;
 
     public bool isReachable = true;
     public Vector2Int gridCoord = new Vector2Int(-1, -1);
@@ -31,9 +35,10 @@ public class Passenger : MonoBehaviour
 
     private void Awake()
     {
-        if (this.GetComponent<Collider>() == null)
+        _collider = GetComponent<Collider>();
+        if (_collider == null)
         {
-            var box = gameObject.AddComponent<CapsuleCollider>();
+            _collider = gameObject.AddComponent<CapsuleCollider>();
         }
 
         colorManager = GetComponent<PassengerColorManager>();
@@ -57,12 +62,12 @@ public class Passenger : MonoBehaviour
             binding: "<Pointer>/press"
         );
 
-        // When a press happens, we'll check if it hit this passenger
-        clickAction.performed += OnClickPerformed;
     }
 
     private void OnEnable()
     {
+        // When a press happens, we'll check if it hit this passenger
+        clickAction.performed += OnClickPerformed;
         pointerPosAction.Enable();
         clickAction.Enable();
     }
@@ -117,6 +122,7 @@ public class Passenger : MonoBehaviour
     public void SetInteractable(bool v)
     {
         _interactable = v;
+        _collider.enabled = v;
     }
 
     public void InitializeGridCoord(int x, int y)
