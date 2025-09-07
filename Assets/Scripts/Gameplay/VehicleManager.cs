@@ -8,23 +8,16 @@ public class VehicleManager : MonoBehaviour
     public Transform vehicleSpawner;
     public int visibleCount = 2;
 
-    [Header("Pool Settings")]
-    public int poolSize;
-
     [Header("Vehicle Settings")]
-    public GameObject vehiclePrefab;
     public int busCapacity = 3;
-    public Color[] possibleColors;
     public float busSpacing = 17f;
 
     [Tooltip("How long the bus shifting animation takes.")]
-    public float shiftAnimationDuration = 0.5f; // Animation speed control
+    public float shiftAnimationDuration = 0.5f;
 
     private List<Vehicle> _pool = new List<Vehicle>();
     private List<Vehicle> _visibleQueue = new List<Vehicle>();
     private Transform _vehiclesParent;
-
-    LevelData level;
 
     public static VehicleManager Instance { get; private set; }
 
@@ -32,40 +25,52 @@ public class VehicleManager : MonoBehaviour
     {
         if (Instance != null && Instance != this) Destroy(gameObject);
         else Instance = this;
-
-        if (vehicleSpawner == null)
-            vehicleSpawner = GameObject.Find("VehicleSpawner").transform ?? this.transform;
-
-        _vehiclesParent = transform.Find("Vehicles");
-        if (_vehiclesParent == null)
-        {
-            _vehiclesParent = new GameObject("Vehicles").transform;
-            _vehiclesParent.SetParent(this.transform, false);
-        }
     }
 
-    void Start()
+    /// <summary>
+    /// This method is now called by GridSpawner after it has been initialized with a level.
+    /// It clears old vehicles and builds the new queue based on the new LevelData.
+    /// </summary>
+    public void InitializeWithLevel(LevelData level)
     {
-        //poolSize = GridSpawner.passengerCount / busCapacity;
-        level = GridSpawner.Instance.level;
-        poolSize = level.vehicleCount;
-        Debug.Log($"VehicleManager: Initializing pool with {poolSize} vehicles.");
-        InitializePool();
+        if (level == null)
+        {
+            Debug.LogError("[VehicleManager] InitializeWithLevel called with a null level!");
+            return;
+        }
+
+        // Clean up any vehicles from a previous run
+        if (_vehiclesParent != null)
+        {
+            Destroy(_vehiclesParent.gameObject);
+        }
+        _vehiclesParent = new GameObject("Vehicles").transform;
+        _vehiclesParent.SetParent(this.transform, false);
+
+        _pool.Clear();
+        _visibleQueue.Clear();
+
+        // --- All logic from Start() is now here ---
+        int poolSize = level.vehicleCount;
+        Debug.Log($"[VehicleManager] Initializing pool with {poolSize} vehicles for level '{level.name}'.");
+        InitializePool(level);
         ActivateInitialVisible();
     }
 
-    void InitializePool()
+    void InitializePool(LevelData level)
     {
-        if (vehiclePrefab == null)
+        for (int i = 0; i < level.vehicleCount; i++)
         {
-            Debug.LogError("VehicleManager: vehiclePrefab is not assigned.");
-            return;
-        }
-        for (int i = 0; i < poolSize; i++)
-        {
+            if (i >= level.vehicles.Count || level.vehicles[i] == null)
+            {
+                Debug.LogWarning($"Vehicle prefab at index {i} is missing in LevelData '{level.name}'. Skipping.");
+                continue;
+            }
+
             GameObject vehicleObj = Instantiate(level.vehicles[i], _vehiclesParent);
             vehicleObj.name = $"Vehicle_{i + 1}";
             Vehicle v = vehicleObj.GetComponent<Vehicle>();
+
             SetColorFromMaterial(vehicleObj, v);
             v.ResetForReuse();
             v.SetVisible(false);
@@ -74,53 +79,8 @@ public class VehicleManager : MonoBehaviour
         }
     }
 
-    void SetColorFromMaterial(GameObject vehicleObj, Vehicle v)
-    {
-        if (v == null || vehicleObj == null)
-        {
-            Debug.LogWarning("SetColorFromMaterial: null vehicle or object.");
-            return;
-        }
-
-        Renderer rend = null;
-        Transform modelT = vehicleObj.transform.Find("Model");
-        if (modelT != null)
-        {
-            rend = modelT.GetComponentInChildren<Renderer>();
-        }
-        else
-        {
-            rend = vehicleObj.GetComponentInChildren<Renderer>();
-        }
-
-        Material mat = rend.materials[1];
-
-        if (mat != null)
-        {
-            Color matColor = ExtractColorFromMaterial(mat);
-            v.Initialize(matColor, busCapacity);
-            Debug.Log($"VehicleManager: Setting color for {vehicleObj.name} from material '{mat.name}'.");
-        }
-        else
-        {
-            v.Initialize(Color.white, busCapacity);
-            Debug.LogWarning($"VehicleManager: Renderer or material not found on {vehicleObj.name}. Cannot set color.");
-        }
-
-    }
-
-    Color ExtractColorFromMaterial(Material mat)
-    {
-        Color matColor = mat.HasProperty("_BaseColor") ? mat.GetColor("_BaseColor") :
-                             mat.HasProperty("_Color") ? mat.GetColor("_Color") :
-                             mat.HasProperty("_TintColor") ? mat.GetColor("_TintColor") :
-                             mat.HasProperty("_MainColor") ? mat.GetColor("_MainColor") :
-                             Color.white;
-
-        return matColor;
-    }
-
-    void ActivateInitialVisible()
+    // This method is now private as it's only called during initialization
+    private void ActivateInitialVisible()
     {
         _visibleQueue.Clear();
         int toShow = Mathf.Min(visibleCount, _pool.Count);
@@ -131,14 +91,42 @@ public class VehicleManager : MonoBehaviour
             _visibleQueue.Add(v);
         }
 
-        // Snap to initial positions
         for (int i = 0; i < _visibleQueue.Count; i++)
         {
+            if (vehicleSpawner == null) vehicleSpawner = this.transform;
             Vector3 pos = vehicleSpawner.position + vehicleSpawner.forward * (-i * busSpacing);
             _visibleQueue[i].SetTransform(pos, vehicleSpawner.rotation);
         }
 
-        GridSpawner.Instance.ProcessBoarding();
+        // A final check to ensure GridSpawner is ready before processing boarding
+        if (GridSpawner.Instance != null)
+        {
+            GridSpawner.Instance.ProcessBoarding();
+        }
+    }
+
+    void SetColorFromMaterial(GameObject vehicleObj, Vehicle v)
+    {
+        if (v == null || vehicleObj == null) return;
+
+        Renderer rend = vehicleObj.GetComponentInChildren<Renderer>();
+        if (rend == null || rend.materials.Length < 2)
+        {
+            v.Initialize(Color.white, busCapacity);
+            Debug.LogWarning($"Could not find renderer or material on {vehicleObj.name} to set color.");
+            return;
+        }
+
+        Material mat = rend.materials[1];
+        Color matColor = ExtractColorFromMaterial(mat);
+        v.Initialize(matColor, busCapacity);
+    }
+
+    Color ExtractColorFromMaterial(Material mat)
+    {
+        if (mat.HasProperty("_BaseColor")) return mat.GetColor("_BaseColor");
+        if (mat.HasProperty("_Color")) return mat.GetColor("_Color");
+        return Color.white;
     }
 
     public Vehicle GetFrontBus()
@@ -148,11 +136,11 @@ public class VehicleManager : MonoBehaviour
 
     public void NotifyBusDeparted(Vehicle departed)
     {
-        // The departed bus is already destroyed, so we just update our lists.
+        if (departed == null) return;
+
         _visibleQueue.Remove(departed);
         _pool.Remove(departed);
 
-        // Find the next bus in the main pool that isn't already visible.
         Vehicle nextInLine = null;
         foreach (var bus in _pool)
         {
@@ -165,28 +153,23 @@ public class VehicleManager : MonoBehaviour
 
         if (nextInLine != null)
         {
-            // Position the new bus at the back before the animation starts.
             Vector3 newBusPos = vehicleSpawner.position + vehicleSpawner.forward * (-visibleCount * busSpacing);
             nextInLine.SetTransform(newBusPos, vehicleSpawner.rotation);
             nextInLine.SetVisible(true);
             _visibleQueue.Add(nextInLine);
         }
 
-        // Animate all visible buses moving forward.
         StartCoroutine(AnimateBusQueueShift());
     }
 
     private void OnVehicleFull(Vehicle v)
     {
-        Debug.Log($"VehicleManager noticed {v.name} is full.");
         v.Depart();
     }
 
     private IEnumerator AnimateBusQueueShift()
     {
         float elapsed = 0f;
-
-        // Store start and end positions for a smooth lerp
         List<Vector3> startPositions = new List<Vector3>();
         List<Vector3> endPositions = new List<Vector3>();
 
@@ -200,7 +183,6 @@ public class VehicleManager : MonoBehaviour
         {
             for (int i = 0; i < _visibleQueue.Count; i++)
             {
-                // Safety check in case a bus was destroyed during the animation
                 if (_visibleQueue[i] != null)
                 {
                     _visibleQueue[i].transform.position = Vector3.Lerp(startPositions[i], endPositions[i], elapsed / shiftAnimationDuration);
@@ -210,7 +192,6 @@ public class VehicleManager : MonoBehaviour
             yield return null;
         }
 
-        // Snap to final positions to ensure accuracy
         for (int i = 0; i < _visibleQueue.Count; i++)
         {
             if (_visibleQueue[i] != null)
@@ -219,8 +200,10 @@ public class VehicleManager : MonoBehaviour
             }
         }
 
-        // After the animation is complete, check if the new front bus can board anyone.
-        GridSpawner.Instance.ProcessBoarding();
+        if (GridSpawner.Instance != null)
+        {
+            GridSpawner.Instance.ProcessBoarding();
+        }
     }
 }
 

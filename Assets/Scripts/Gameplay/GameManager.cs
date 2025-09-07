@@ -7,25 +7,22 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
-    LevelData level;
-    [SerializeField] float countdown = 0f;
+    private LevelData level;
+    private float countdown = 0f;
 
     [Header("UI Panels")]
-    [Tooltip("Panel under Canvas named 'WinScreen'")]
     [SerializeField] private GameObject winScreen;
-    [Tooltip("Panel under Canvas named 'LoseScreen'")]
     [SerializeField] private GameObject loseScreen;
 
-    public enum GameState { Running, Paused, Won, Lost }
-    public GameState State { get; private set; } = GameState.Running;
+    public enum GameState { Paused, Running, Won, Lost }
+    public GameState State { get; private set; } = GameState.Paused;
 
-    private void Start()
+    private void Awake()
     {
+        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
-        level = GridSpawner.Instance?.level;
-        countdown = level.GetCountdownTime();
 
-        // Try to auto-find Win/Lose panels if not assigned in inspector
+        // UI setup is not level-dependent, so it can safely happen in Awake.
         if (winScreen == null || loseScreen == null)
         {
             var canvas = FindObjectOfType<Canvas>();
@@ -44,45 +41,58 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        // Ensure both are initially hidden
+        if (winScreen != null) winScreen.SetActive(false);
+        if (loseScreen != null) loseScreen.SetActive(false);
+    }
+
+    public void InitializeWithLevel(LevelData newLevel)
+    {
+        level = newLevel;
+        if (level == null)
+        {
+            Debug.LogError("[GameManager] InitializeWithLevel called with a null level!");
+            return;
+        }
+
+        countdown = level.GetCountdownTime();
+        Time.timeScale = 1f;
+        State = GameState.Paused; // Start paused until the first click
+
+        // Ensure UI is hidden at the start of a new level
         if (winScreen != null) winScreen.SetActive(false);
         if (loseScreen != null) loseScreen.SetActive(false);
 
-        Time.timeScale = 1f;
-        State = GameState.Paused;
+        Debug.Log($"[GameManager] Initialized for level '{level.name}' with a countdown of {countdown}s.");
     }
 
-    // Update is called once per frame
     void Update()
     {
-        PassTime();
-
+        if (State == GameState.Won || State == GameState.Lost) return;
         if (State != GameState.Running) return;
-        if (level == null) return;
 
-        Debug.Log("Remanining Passengers: " + GridSpawner.passengerCount);
-        if (countdown <= 0f)
+        if (countdown > 0f)
         {
-            int remaining = GridSpawner.passengerCount;
-            Debug.Log($"Time ran out! Remaining passengers: {remaining}");
-            if (remaining > 0)
+            countdown -= Time.deltaTime;
+            if (countdown <= 0f)
             {
-                Lose("Time ran out");
-            }
-            else
-            {
-                Win();
+                countdown = 0f;
+                // Time ran out, check for win/loss
+                EvaluateGameState();
             }
         }
-
     }
 
     public void EvaluateGameState()
     {
-        if (State != GameState.Running) return;
-        if (GridSpawner.passengerCount == 0)
+        if (State == GameState.Won || State == GameState.Lost) return;
+
+        if (GridSpawner.passengerCount <= 0)
         {
             Win();
+        }
+        else if (countdown <= 0f)
+        {
+            Lose("Time ran out");
         }
     }
 
@@ -90,97 +100,47 @@ public class GameManager : MonoBehaviour
     {
         if (State == GameState.Won || State == GameState.Lost) return;
         State = GameState.Won;
-        Time.timeScale = 0f; // freeze game
+        Debug.Log("[GameManager] YOU WIN!");
 
-        Debug.Log("[GameManager] YOU WIN! All passengers processed.");
+        //Time.timeScale = 0f;
+        if (winScreen != null) winScreen.SetActive(true);
 
-        ShowWinUI();
+        StartCoroutine(WaitAndComplete());
     }
 
-    public void Lose(string reason = null)
+    public void Lose(string reason = "")
     {
         if (State == GameState.Won || State == GameState.Lost) return;
         State = GameState.Lost;
-        Time.timeScale = 0f; // freeze game
+        Debug.Log($"[GameManager] YOU LOSE! Reason: {reason}");
 
-        Debug.Log($"[GameManager] YOU LOSE! {reason}");
+        //Time.timeScale = 0f;
+        if (loseScreen != null) loseScreen.SetActive(true);
 
-        // Make all passengers unclickable
-        DisableAllPassengerColliders();
-
-        ShowLoseUI();
-    }
-
-    private void ShowWinUI()
-    {
-        // e.g. WinCanvas.SetActive(true);
-        winScreen.SetActive(true);
-        Debug.Log("WIN UI");
-    }
-
-    private void ShowLoseUI()
-    {
-        loseScreen.SetActive(true);
-        Debug.Log("LOSE UI");
-    }
-
-    /// For editor or restart logic: unfreeze and reset (not fully implemented here).
-    public void UnfreezeForTesting()
-    {
-        Time.timeScale = 1f;
-        State = GameState.Running;
+        StartCoroutine(WaitAndFail());
     }
 
     public void SetGameState(GameState newState)
     {
         State = newState;
-        if (newState == GameState.Running)
-            Time.timeScale = 1f;
-        else
-            Time.timeScale = 0f;
     }
 
     public float GetRemainingTime()
     {
         return countdown;
-    }   
-
-    void PassTime()
-    {
-        if (State != GameState.Running) return;
-        if (countdown > 0f)
-        {
-            countdown -= Time.deltaTime;
-            if (countdown < 0f) countdown = 0f;
-        }
     }
 
-    void DisableAllPassengerColliders()
+    private IEnumerator WaitAndComplete()
     {
-        // Find all Passenger components in scene (include inactive to be safe)
-        Passenger[] allPassengers = FindObjectsOfType<Passenger>(true);
-        for (int i = 0; i < allPassengers.Length; i++)
-        {
-            var p = allPassengers[i];
-            if (p == null) continue;
+        yield return new WaitForSecondsRealtime(2f); 
+        Time.timeScale = 1f;
+        LevelManager.Instance?.OnLevelCompleted();
+    }
 
-            // mark non-interactable (prevents input action handler from firing)
-            p.SetInteractable(false);
-
-            //// disable any colliders on the passenger or its children
-            //Collider[] cols = p.GetComponentsInChildren<Collider>(true);
-            //if (cols != null)
-            //{
-            //    foreach (var c in cols)
-            //    {
-            //        if (c != null) c.enabled = false;
-            //    }
-            //}
-
-            Collider c = p.GetComponent<Collider>();
-            c.enabled = false;
-            Debug.Log(GetRemainingTime() + " Disabling collider on " + p.name);
-
-        }
+    private IEnumerator WaitAndFail()
+    {
+        yield return new WaitForSecondsRealtime(2f); 
+        Time.timeScale = 1f;
+        LevelManager.Instance?.OnLevelFailed();
     }
 }

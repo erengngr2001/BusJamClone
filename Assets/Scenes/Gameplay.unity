@@ -243,7 +243,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   shift: {x: 0, y: 0, z: -10}
-  level: {fileID: 11400000, guid: 5d4002e5b6646964a8184fb146fe396f, type: 2}
+  level: {fileID: 11400000, guid: fb765716c23c9df42b7a072a0b287fd3, type: 2}
   passengerSpawnCoords: []
   passengerPrefab: {fileID: 7355428540370584281, guid: 790ad784e55a56340b3fcab346e873f4, type: 3}
   obstaclePrefab: {fileID: 899279420712235663, guid: 0f8e64c96d699ca4dbb625dd192d0127, type: 3}

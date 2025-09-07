@@ -51,22 +51,7 @@ public class GridSpawner : MonoBehaviour
         else
         {
             Instance = this;
-            if (passengerSpawnCoords == null)
-                passengerSpawnCoords = new List<Vector2Int>();
-            GenerateGridData();
-            GenerateWaitingLine();
         }
-
-        // ADDED TO AWAKE FROM START IN ORDER TO EASIER ACCESS TO PASSENGERCOUNT
-        if (passengerSpawnCoords == null || passengerSpawnCoords.Count == 0)
-        {
-            PreparePassengerList();
-        }
-        SpawnObstacles();
-        SpawnPipes();
-        SpawnPassengers();
-        //Debug.Log($"[GridSpawner] Spawned {passengerCount} passenger groups.");
-        ComputePathsForAllPassengers();
     }
 
     private void GenerateGridData()
@@ -361,11 +346,8 @@ public class GridSpawner : MonoBehaviour
     {
         if (clicked.isReachable)
         {
-            // Further actions for reachable passenger can be added here
-            //Debug.Log($"[GridSpawner] Clicked reachable passenger at ({clicked.gridCoord.x},{clicked.gridCoord.y}).");
             if (_waitingLineCount >= _waitingSlots.Length)
             {
-                //Debug.Log("GAME OVER - LOOOOSEEEERRRRR");
                 GameManager.Instance?.Lose("Waiting line is full");
                 return;
             }
@@ -375,7 +357,7 @@ public class GridSpawner : MonoBehaviour
             }
             if (GameManager.Instance?.GetRemainingTime() <= 0)
             {
-                Debug.Log("[GridSpawner] Attempted to add when time already expired.");
+                //Debug.Log("[GridSpawner] Attempted to add when time already expired.");
                 GameManager.Instance?.Lose("Time expired");
                 return;
             }
@@ -388,8 +370,6 @@ public class GridSpawner : MonoBehaviour
 
     void AddToWaitingLine(Passenger clicked)
     {
-        //Debug.Log("Passenger added to waiting line.");
-
         // find first empty slot
         int slotIndex = -1;
 
@@ -403,7 +383,6 @@ public class GridSpawner : MonoBehaviour
         }
         if (slotIndex == -1)
         {
-            //Debug.LogWarning("[GridSpawner] No empty waiting slot found despite count check.");
             return;
         }
 
@@ -433,12 +412,7 @@ public class GridSpawner : MonoBehaviour
         _waitingSlots[slotIndex] = slot;
         _waitingLineCount++;
 
-        //Debug.Log($"Passenger moved to waiting slot {slotIndex}. _waitingLineCount={_waitingLineCount}");
-
-        // Trigger the boarding check now that a new passenger is waiting
         ProcessBoarding();
-
-        // Recompute paths for remaining passengers (passengers parent only)
         ComputePathsForAllPassengers();
     }
 
@@ -489,7 +463,7 @@ public class GridSpawner : MonoBehaviour
             return; // No bus or bus is already full
         }
 
-        bool passengerBoarded = false;
+        //bool passengerBoarded = false;
 
         // Iterate through waiting slots to find matching passengers
         for (int i = 0; i < _waitingSlots.Length; i++)
@@ -517,7 +491,7 @@ public class GridSpawner : MonoBehaviour
                         _waitingLineCount--;
                         passengerCount--;
 
-                        passengerBoarded = true;
+                        //passengerBoarded = true;
                     }
                 }
             }
@@ -526,6 +500,45 @@ public class GridSpawner : MonoBehaviour
         // After boarding attempts, let GameManager check if game is won
         GameManager.Instance?.EvaluateGameState();
     }
+
+    public void InitializeWithLevel(LevelData newLevel)
+    {
+        if (newLevel == null)
+        {
+            Debug.LogError("[GridSpawner] InitializeWithLevel called with a null level!");
+            return;
+        }
+
+        level = newLevel;
+        GameManager.Instance.InitializeWithLevel(level);
+
+        // Clean up any objects from a previous level (e.g., when restarting)
+        Action<string> ClearChildObjects = (parentName) => {
+            var parent = transform.Find(parentName);
+            if (parent != null) Destroy(parent.gameObject);
+        };
+
+        ClearChildObjects("Passengers");
+        ClearChildObjects("Obstacles");
+        ClearChildObjects("Pipes");
+        ClearChildObjects("WaitingLine");
+
+        GenerateGridData();
+        GenerateWaitingLine();
+
+        PreparePassengerList();
+        SpawnObstacles();
+        SpawnPipes();
+        SpawnPassengers();
+
+        ComputePathsForAllPassengers();
+
+        Debug.Log($"[GridSpawner] Successfully initialized with Level: '{level.name}'.");
+
+        VehicleManager.Instance.InitializeWithLevel(level);
+        //GameManager.Instance.InitializeWithLevel(level);
+    }
+
 
     public void SetGridCell(GridCell cell)
     {
