@@ -1,5 +1,6 @@
 # BusJamClone
-Bus Jam mobile game clone
+Bus Jam mobile game clone <br></br>
+**WARNING:** Switch to Android platform before running game! <br></br>
 
 
 # 5 Unique Level: 
