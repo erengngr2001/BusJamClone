@@ -16,14 +16,15 @@ Bus Jam mobile game clone
 - Persistent level progress & level display on menu. <br></br>
 ### Level Editor
 <img width="1191" height="1294" alt="Ekran görüntüsü 2025-09-08 133947" src="https://github.com/user-attachments/assets/ebfd4262-2256-4075-98d6-4d77ae41656e" /> <br></br>
-- Directly editable upon scriptable objects from the Inspector.
-- Colors, materials, pipe rotations, pipe pool sizes, total passengers, bus line, Grid settings... All configurable (EXCEPT waiting line lenght, which is set to 5 with a variable but open to more future development)
+- Directly editable upon scriptable objects from the Inspector. <br></br>
+- Colors, materials, pipe rotations, pipe pool sizes, total passengers, bus line, Grid settings... All configurable (EXCEPT waiting line lenght, which is set to 5 with a variable but open to more future development) <br></br>
 
 # Gameplay
+
 ## Mission
-Board the passengers to the buses with the same color. Board all passengers before time runs out!
+Board the passengers to the buses with the same color. Board all passengers before time runs out! <br></br>
 ## Win-Lose Conditions
-- WIN => Board all passengers before time runs out.
-- LOSE => Either time runs out OR you tried to queue more than 5 (configurable in future) passengers in the waiting line. (Countdown starts on a mouse click on passengers)
+- WIN => Board all passengers before time runs out. <br></br>
+- LOSE => Either time runs out OR you tried to queue more than 5 (configurable in future) passengers in the waiting line. (Countdown starts on a mouse click on passengers) <br></br>
 ## Simple Level Display
-<img width="464" height="824" alt="Ekran görüntüsü 2025-09-08 134540" src="https://github.com/user-attachments/assets/f64aba5d-823c-4626-a8bf-7c35dcdb83da" />
+<img width="464" height="824" alt="Ekran görüntüsü 2025-09-08 134540" src="https://github.com/user-attachments/assets/f64aba5d-823c-4626-a8bf-7c35dcdb83da" /> <br></br>
