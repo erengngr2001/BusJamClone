@@ -13,6 +13,7 @@ public class Passenger : MonoBehaviour
     private bool _interactable = true;
     private Collider _collider;
 
+    public bool IsMoving { get; set; } = false;
     public bool isReachable = true;
     public Vector2Int gridCoord = new Vector2Int(-1, -1);
     //public System.Action<Passenger> onPassengerClicked;
@@ -113,7 +114,7 @@ public class Passenger : MonoBehaviour
 
     private void HandleClick()
     {
-        if (!_interactable) return;
+        if (!_interactable || IsMoving) return;
         onClickedByPlayer?.Invoke(this);
         Collider c = GetComponent<Collider>();
         c.enabled = false; // disable further clicks

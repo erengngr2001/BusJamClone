@@ -46,7 +46,7 @@ public class LevelDataEditor : Editor
         EditorGUILayout.PropertyField(widthProp);
         EditorGUILayout.PropertyField(heightProp);
         EditorGUILayout.PropertyField(cellSizeProp);
-        EditorGUILayout.PropertyField(vehicleCountProp);
+        //EditorGUILayout.PropertyField(vehicleCountProp);
         EditorGUILayout.PropertyField(countdownProp);
         if (EditorGUI.EndChangeCheck())
         {

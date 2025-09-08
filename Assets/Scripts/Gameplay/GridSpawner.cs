@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,6 +12,8 @@ public class WaitingSlot
     public GridCell slotCell;
     public GameObject placeholder; // visible "empty slot" object
     public GameObject occupant;    // the actual passenger moved here (null if empty)
+
+    public Passenger incomingPassenger;
 }
 
 public class GridSpawner : MonoBehaviour
@@ -38,6 +41,10 @@ public class GridSpawner : MonoBehaviour
     private WaitingSlot[] _waitingSlots;
     private int _waitingLineCount = 0;
     private Transform _waitingParent;
+
+    [Header("Movement")]
+    [Tooltip("How fast passengers move across the grid.")]
+    [SerializeField] private float passengerMoveSpeed = 20f;
 
     // SINGLETON
     public static GridSpawner Instance { get; private set; }
@@ -344,27 +351,13 @@ public class GridSpawner : MonoBehaviour
 
     public void HandleClick(Passenger clicked)
     {
-        if (clicked.isReachable)
+        if (clicked.isReachable && !clicked.IsMoving)
         {
-            if (_waitingLineCount >= _waitingSlots.Length)
-            {
-                GameManager.Instance?.Lose("Waiting line is full");
-                return;
-            }
-            else
-            {
-                AddToWaitingLine(clicked);
-            }
-            if (GameManager.Instance?.GetRemainingTime() <= 0)
-            {
-                //Debug.Log("[GridSpawner] Attempted to add when time already expired.");
-                GameManager.Instance?.Lose("Time expired");
-                return;
-            }
+            AddToWaitingLine(clicked);
         }
         else
         {
-            Debug.Log($"[GridSpawner] Clicked passenger at ({clicked.gridCoord.x},{clicked.gridCoord.y}) but NOT reachable.");
+            Debug.Log($"[GridSpawner] Clicked passenger at ({clicked.gridCoord.x},{clicked.gridCoord.y}) but it was not reachable or was already moving.");
         }
     }
 
@@ -375,45 +368,78 @@ public class GridSpawner : MonoBehaviour
 
         for (int i = 0; i < _waitingSlots.Length; i++)
         {
-            if (_waitingSlots[i].occupant == null)
+            if (_waitingSlots[i].occupant == null && _waitingSlots[i].incomingPassenger == null)
             {
                 slotIndex = i;
                 break;
             }
         }
+
         if (slotIndex == -1)
         {
+            GameManager.Instance?.Lose("Waiting line is full");
+            return;
+        }
+        if (GameManager.Instance?.GetRemainingTime() <= 0)
+        {
+            GameManager.Instance?.Lose("Time expired");
             return;
         }
 
-        WaitingSlot slot = _waitingSlots[slotIndex];
+        _waitingSlots[slotIndex].incomingPassenger = clicked;
+        clicked.IsMoving = true;
+        clicked.SetInteractable(false);
 
-        // Clear original grid cell occupancy
+        // Clear the passenger's original grid cell
         GridCell originalCell = GetGridCell(clicked.gridCoord.x, clicked.gridCoord.y);
         if (originalCell != null)
         {
             originalCell.ClearOccupyingObject();
         }
 
-        // Move passenger GameObject to waiting slot (no instantiate/destroy)
-        clicked.transform.SetParent(_waitingParent, true);
-        clicked.transform.position = slot.slotCell.worldPos + new Vector3(0f, .55f, 0f);
-
-        // mark passenger as non-interactive and mark its gridCoord as "off-grid"
-        clicked.SetInteractable(false);
-        clicked.SetReachableImmediate(true);
-        clicked.InitializeGridCoord(-1, -1);
-
-        // update slot bookkeeping
-        slot.occupant = clicked.gameObject;
-        if (slot.placeholder != null) slot.placeholder.SetActive(false);
-        slot.slotCell.SetOccupyingObject(clicked.gameObject);
-
-        _waitingSlots[slotIndex] = slot;
-        _waitingLineCount++;
-
-        ProcessBoarding();
+        // Recalculate paths for all other passengers now that a space is free
         ComputePathsForAllPassengers();
+
+        // Build the path in world coordinates for the animation
+        var worldPath = new List<Vector3>();
+        if (clicked.currentPath != null)
+        {
+            foreach (var pathNode in clicked.currentPath)
+            {
+                worldPath.Add(GetWorldPosition(pathNode.x, pathNode.y) + new Vector3(0f, 0.55f, 0f));
+            }
+        }
+        // Add the final waiting slot position to the path
+        worldPath.Add(_waitingSlots[slotIndex].slotCell.worldPos + new Vector3(0f, 0.55f, 0f));
+
+        // Lambda for defining what should happen AFTER the animation is complete
+        Action onAnimationComplete = () => {
+            // Safety check in case the passenger was destroyed while moving
+            if (clicked == null)
+            {
+                _waitingSlots[slotIndex].incomingPassenger = null;
+                return;
+            }
+
+            // The passenger has arrived. Finalize its state.
+            WaitingSlot targetSlot = _waitingSlots[slotIndex];
+            targetSlot.occupant = clicked.gameObject;
+            targetSlot.incomingPassenger = null;
+            _waitingLineCount++;
+
+            clicked.transform.SetParent(_waitingParent, true);
+            clicked.InitializeGridCoord(-1, -1);
+            clicked.SetReachableImmediate(true);
+            clicked.IsMoving = false;
+
+            if (targetSlot.placeholder != null) targetSlot.placeholder.SetActive(false);
+            targetSlot.slotCell.SetOccupyingObject(clicked.gameObject);
+
+            ProcessBoarding();
+        };
+
+        StartCoroutine(PassengerMover.AnimateMovement(clicked, worldPath, passengerMoveSpeed, onAnimationComplete));
+
     }
 
     void ComputePathsForAllPassengers()
@@ -445,7 +471,7 @@ public class GridSpawner : MonoBehaviour
         return passengerCount;
     }
 
-    // Heuristic static walkability check: treat cells that contain obstacle/pipe/wall in their enum name as blocked
+    // Heuristic static walkability check: treat cells that contain obstacle/pipe in their enum name as blocked
     public bool IsCellStaticallyWalkable(int x, int y)
     {
         var ct = level.GetCell(x, y);
@@ -462,8 +488,6 @@ public class GridSpawner : MonoBehaviour
         {
             return; // No bus or bus is already full
         }
-
-        //bool passengerBoarded = false;
 
         // Iterate through waiting slots to find matching passengers
         for (int i = 0; i < _waitingSlots.Length; i++)
@@ -491,7 +515,6 @@ public class GridSpawner : MonoBehaviour
                         _waitingLineCount--;
                         passengerCount--;
 
-                        //passengerBoarded = true;
                     }
                 }
             }

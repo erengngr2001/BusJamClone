@@ -14,7 +14,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 81bb9eea30387e442899949a80011e55, type: 3}
       propertyPath: m_LocalScale.y
-      value: 2
+      value: 2.5
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 81bb9eea30387e442899949a80011e55, type: 3}
       propertyPath: m_LocalScale.z
@@ -254,6 +254,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab111b7300a3e194296acb6d9377dbdd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  originPipe: {fileID: 0}
   isReachable: 1
   gridCoord: {x: -1, y: -1}
   currentPath: []

@@ -44,7 +44,7 @@ public class LevelData : ScriptableObject
     public List<Material> cellMaterials = new List<Material>();
 
     public List<GameObject> vehicles = new List<GameObject>();
-    public int vehicleCount;
+    [HideInInspector] public int vehicleCount;
 
     // Unity callback in the editor when values change — keeps the list in sync
     private void OnValidate()
