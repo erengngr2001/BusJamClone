@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 705507994}
-  m_IndirectSpecularColor: {r: 0.4350449, g: 0.48216498, b: 0.5630992, a: 1}
+  m_IndirectSpecularColor: {r: 0.43881592, g: 0.48691773, b: 0.5676294, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -248,6 +248,7 @@ MonoBehaviour:
   passengerPrefab: {fileID: 7355428540370584281, guid: 790ad784e55a56340b3fcab346e873f4, type: 3}
   obstaclePrefab: {fileID: 899279420712235663, guid: 0f8e64c96d699ca4dbb625dd192d0127, type: 3}
   pipePrefab: {fileID: 914965465275482947, guid: 8a70426db52dc1a4888b490263d8c6c8, type: 3}
+  passengerMoveSpeed: 20
 --- !u!1 &410272542
 GameObject:
   m_ObjectHideFlags: 0
@@ -430,11 +431,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   vehicleSpawner: {fileID: 446973214}
   visibleCount: 2
-  poolSize: 0
-  vehiclePrefab: {fileID: 3703243593583481693, guid: b12bdc936ef3cc242bf4c4263a7ed462, type: 3}
   busCapacity: 3
-  possibleColors:
-  - {r: 0.8301887, g: 0.105731584, b: 0.12558655, a: 0}
   busSpacing: 17
   shiftAnimationDuration: 0.5
 --- !u!1 &503975133
@@ -542,7 +539,7 @@ Light:
   m_Type: 1
   m_Shape: 0
   m_Color: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
-  m_Intensity: 1
+  m_Intensity: 1.35
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
@@ -551,7 +548,7 @@ Light:
     m_Type: 2
     m_Resolution: -1
     m_CustomResolution: -1
-    m_Strength: 1
+    m_Strength: 0.2
     m_Bias: 0.05
     m_NormalBias: 0.4
     m_NearPlane: 0.2
@@ -600,13 +597,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 705507993}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.62088513, y: -0.19826688, z: 0.16636564, w: 0.7399422}
+  m_LocalRotation: {x: 0.51899153, y: -0.21828574, z: 0.13906334, w: 0.81465364}
   m_LocalPosition: {x: 0, y: 3, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 80, y: -30, z: 0}
+  m_LocalEulerAnglesHint: {x: 65, y: -30, z: 0}
 --- !u!114 &705507996
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -619,10 +616,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: add14626fb719324ab92da28a5ae3dca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  directionalIntensity: 1
+  directionalIntensity: 1.35
   ambientLight: {r: 1, g: 0.95686275, b: 0.8392157, a: 1}
   skyboxMaterial: {fileID: 0}
-  directionalLightName: 
+  directionalLightName: Directional Light
 --- !u!1 &897604317
 GameObject:
   m_ObjectHideFlags: 0
@@ -1220,7 +1217,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b417833c7e556444abf887eea493b751, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  countdown: 0
   winScreen: {fileID: 1137605513}
   loseScreen: {fileID: 1750890081}
 --- !u!4 &1934356211

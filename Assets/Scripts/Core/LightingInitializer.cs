@@ -5,7 +5,7 @@ using UnityEngine;
 public class LightingInitializer : MonoBehaviour
 {
     [Header("Desired Gameplay Lighting (fallback)")]
-    public float directionalIntensity = 1.0f;
+    public float directionalIntensity = 1.35f;
     public Color ambientLight = Color.white;
     public Material skyboxMaterial; // assign the expected gameplay skybox here (optional)
 
