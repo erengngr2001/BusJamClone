@@ -21,11 +21,6 @@ public class Pipe : MonoBehaviour
     // simple guard to avoid concurrently starting multiple release coroutines for same pipe
     private bool _releaseInProgress = false;
 
-    //private void Awake()
-    //{
-    //    TryCreateSpawnPoint();
-    //}
-
     public void Initialize(int x, int y)
     {
         this.x = x;
@@ -163,6 +158,9 @@ public class Pipe : MonoBehaviour
         configuredSize = Mathf.Max(0, configuredSize);
         pipePoolSize = configuredSize; // sync instance value
 
+        // get spawn cell (grid coordinates) once
+        GridCell spawnCell = GetGridCellForSpawner();
+
         for (int i = 0; i < pipePoolSize; i++)
         {
             Vector3 spawnPos = _passengerSpawnPoint.position + new Vector3(0f, 0.55f, 0f);
@@ -170,8 +168,24 @@ public class Pipe : MonoBehaviour
             p.name = $"{name}_Passenger_{i}";
             var passengerComp = p.GetComponent<Passenger>();
 
-            // ensure off-grid
-            passengerComp.InitializeGridCoord(-1, -1);
+            // ensure we have a passenger component
+            if (passengerComp == null)
+            {
+                Debug.LogError("Pipe passenger prefab missing Passenger component.");
+                Destroy(p);
+                continue;
+            }
+
+            // set grid coord to the spawn cell so pathfinding will consider this passenger
+            if (spawnCell != null)
+            {
+                passengerComp.InitializeGridCoord(spawnCell.x, spawnCell.y);
+            }
+            else
+            {
+                passengerComp.InitializeGridCoord(-1, -1);
+            }
+
             // route clicks to this pipe (so pipe knows which pool to advance)
             passengerComp.onClickedByPlayer = HandlePipePassengerClicked;
 
@@ -182,17 +196,16 @@ public class Pipe : MonoBehaviour
                 rend = p.GetComponentInChildren<Renderer>();
             }
 
-            if (rend != null)
+            if (rend != null && configuredMats != null && i < configuredMats.Count && configuredMats[i] != null)
             {
+                // guard against out-of-range index in configuredMats
                 rend.material = configuredMats[i];
                 // refresh color manager to pick up the new material color
                 var pcm = p.GetComponent<PassengerColorManager>();
                 if (pcm != null)
                 {
-                    var refresh = pcm.GetType().GetMethod("RefreshOriginalColor");
-                    if (refresh != null) refresh.Invoke(pcm, null);
-
-                    pcm.ApplyReachability(passengerComp != null ? passengerComp.isReachable : true);
+                    pcm.RefreshOriginalColor();
+                    pcm.ApplyReachability(passengerComp != null ? passengerComp.isReachable : true, passengerComp != null ? passengerComp.IsColorHidden : false);
                 }
             }
 
@@ -201,6 +214,13 @@ public class Pipe : MonoBehaviour
             {
                 p.SetActive(true);
                 passengerComp?.SetInteractable(true);
+
+                // make spawn cell occupied by the front passenger (so pathfinding sees it as occupied)
+                if (spawnCell != null)
+                {
+                    spawnCell.SetOccupyingObject(p);
+                    GridSpawner.Instance.SetGridCell(spawnCell);
+                }
             }
             else
             {
@@ -210,6 +230,9 @@ public class Pipe : MonoBehaviour
 
             _passengerPool.Add(p);
         }
+
+        // make sure reachability considers the new (front) passenger
+        GridSpawner.Instance?.ComputePathsForAllPassengers();
     }
 
 
@@ -264,6 +287,18 @@ public class Pipe : MonoBehaviour
                 next.SetActive(true);
                 var nextComp = next.GetComponent<Passenger>();
                 nextComp?.SetInteractable(true);
+
+                // ensure its grid coord is set and spawn cell occupies it
+                GridCell spawnCell = GetGridCellForSpawner();
+                if (spawnCell != null)
+                {
+                    nextComp?.InitializeGridCoord(spawnCell.x, spawnCell.y);
+                    spawnCell.SetOccupyingObject(next);
+                    GridSpawner.Instance?.SetGridCell(spawnCell);
+                }
+
+                // recompute reachability for all passengers now that a new passenger is visible on the grid
+                GridSpawner.Instance?.ComputePathsForAllPassengers();
             }
         }
 

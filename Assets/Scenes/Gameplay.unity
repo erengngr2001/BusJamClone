@@ -249,6 +249,7 @@ MonoBehaviour:
   obstaclePrefab: {fileID: 899279420712235663, guid: 0f8e64c96d699ca4dbb625dd192d0127, type: 3}
   pipePrefab: {fileID: 914965465275482947, guid: 8a70426db52dc1a4888b490263d8c6c8, type: 3}
   passengerMoveSpeed: 20
+  hiddenPassengerMaterial: {fileID: 2100000, guid: 2d1c7c7ba8e08ed43bdb258b2eaf5085, type: 2}
 --- !u!1 &410272542
 GameObject:
   m_ObjectHideFlags: 0
@@ -669,12 +670,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_UiScaleMode: 0
+  m_UiScaleMode: 1
   m_ReferencePixelsPerUnit: 100
   m_ScaleFactor: 1
   m_ReferenceResolution: {x: 800, y: 600}
   m_ScreenMatchMode: 0
-  m_MatchWidthOrHeight: 0
+  m_MatchWidthOrHeight: 1
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96

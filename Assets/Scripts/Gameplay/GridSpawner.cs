@@ -46,6 +46,10 @@ public class GridSpawner : MonoBehaviour
     [Tooltip("How fast passengers move across the grid.")]
     [SerializeField] private float passengerMoveSpeed = 20f;
 
+    [Header("Materials")]
+    [Tooltip("The material to apply to hidden passengers when they are unreachable.")]
+    [SerializeField] private Material hiddenPassengerMaterial;
+
     // SINGLETON
     public static GridSpawner Instance { get; private set; }
 
@@ -134,7 +138,7 @@ public class GridSpawner : MonoBehaviour
         {
             for (int y = 0; y < level.height; y++)
             {
-                if (level.GetCell(x, y) == CellType.ColorPassenger)
+                if (level.GetCell(x, y) == CellType.ColorPassenger || level.GetCell(x, y) == CellType.HiddenColorPassenger)
                 {
                     passengerSpawnCoords.Add(new Vector2Int(x, y));
                     passengerCount++;
@@ -232,7 +236,6 @@ public class GridSpawner : MonoBehaviour
         var pd = level.pipeData[idx];
         if (pd == null) return 0f;
 
-        // assume PipeData has a public float rotationY
         return pd.rotationY;
     }
 
@@ -244,7 +247,12 @@ public class GridSpawner : MonoBehaviour
             return;
         }
 
-        // Create a parent object for clean hierarchy (destroy existing one to avoid duplicates)
+        if (hiddenPassengerMaterial == null)
+        {
+            Debug.LogError("[GridSpawner] Hidden Passenger Material is not assigned in the Inspector! This is required for the hidden mechanic.");
+        }
+
+        // assign parent for passenger objects
         Transform existing = transform.Find("Passengers");
         Transform passengerParent;
         if (existing != null)
@@ -256,57 +264,60 @@ public class GridSpawner : MonoBehaviour
             passengerParent = new GameObject("Passengers").transform;
             passengerParent.SetParent(this.transform);
         }
-         
+
+        // spawn passengers on each coordinate, data taken from editor-assigned LevelData
         foreach (Vector2Int coord in passengerSpawnCoords)
         {
             GridCell cell = GetGridCell(coord.x, coord.y);
             if (cell != null && !cell.IsOccupied())
             {
-                // We use the pre-calculated world position from the GridCell
                 Vector3 spawnPos = cell.worldPos + new Vector3(0f, .55f, 0f);
                 GameObject passengerInstance = Instantiate(passengerPrefab, spawnPos, Quaternion.identity, passengerParent);
                 passengerInstance.name = $"Passenger_({coord.x},{coord.y})";
 
                 Passenger psg = passengerInstance.GetComponent<Passenger>();
-                psg?.InitializeGridCoord(coord.x, coord.y);
-                if (psg != null)
-                    psg.onClickedByPlayer = OnPassengerClicked;
+                if (psg == null) continue;
 
-                Material mat = level.GetCellMaterial(coord.x, coord.y);
-                if (mat != null)
+                psg.InitializeGridCoord(coord.x, coord.y);
+                psg.onClickedByPlayer = OnPassengerClicked;
+
+                var renderer = passengerInstance.GetComponentInChildren<Renderer>();
+                if (renderer == null)
                 {
-                    Renderer bodyRenderer = null;
-                    Transform body = passengerInstance.transform.Find("Body");
-
-                    if (body != null)
-                        bodyRenderer = body.GetComponent<Renderer>();
-
-                    if (bodyRenderer != null)
-                    {
-                        var r = passengerInstance.GetComponentInChildren<Renderer>();
-                        Debug.Log($"Renderer found: {r.gameObject.name}");
-                        r.material = mat;
-                    }
-
-                    if (bodyRenderer != null)
-                    {
-                        bodyRenderer.material = mat;
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"Body renderer not found in passenger prefab instance at ({coord.x}, {coord.y}).");
-                    }
-
+                    Debug.LogError($"Passenger at ({coord.x},{coord.y}) has no renderer!");
+                    continue;
                 }
 
+                var cellType = level.GetCell(coord.x, coord.y);
                 var passColorManager = passengerInstance.GetComponent<PassengerColorManager>();
-                if (passColorManager != null && level.cellColors != null)
+                Material finalMaterial = level.GetCellMaterial(coord.x, coord.y);
+
+                if (cellType == CellType.HiddenColorPassenger)
                 {
-                    passColorManager.RefreshOriginalColor();
-                    passColorManager.ApplyReachability(psg != null ? psg.isReachable : true);
+                    // If no material is set in LevelData for this hidden passenger, use its prefab material as the "original" one.
+                    if (finalMaterial == null)
+                    {
+                        finalMaterial = renderer.sharedMaterial;
+                    }
+                    psg.InitializeAsHidden(finalMaterial, hiddenPassengerMaterial);
+                }
+                else // Logic for regular Color Passengers
+                {
+                    // If a material is specified in level data, apply it.
+                    if (finalMaterial != null)
+                    {
+                        renderer.material = finalMaterial;
+                    }
+
+                    // tell the color manager to read the correct color from it before applying any visual effects.
+                    if (passColorManager != null)
+                    {
+                        passColorManager.RefreshOriginalColor();
+                        passColorManager.ApplyReachability(psg.isReachable, false);
+                    }
                 }
 
-                cell.SetOccupyingObject(passengerInstance); // Mark the cell as occupied
+                cell.SetOccupyingObject(passengerInstance);
             }
             else
             {
@@ -442,27 +453,32 @@ public class GridSpawner : MonoBehaviour
 
     }
 
-    void ComputePathsForAllPassengers()
+    public void ComputePathsForAllPassengers()
     {
         int w = level.width;
         int h = level.height;
         int frontY = h - 1;
 
-        Transform parent = transform.Find("Passengers");
-        if (parent == null) return;
+        // Find all Passenger components in the scene (includes pipe children).
+        Passenger[] allPassengers = GameObject.FindObjectsOfType<Passenger>();
 
-        for (int i = 0; i < parent.childCount; i++)
+        foreach (var passenger in allPassengers)
         {
-            GameObject passengerObj = parent.GetChild(i).gameObject;
-            Passenger passenger = passengerObj.GetComponent<Passenger>();
             if (passenger == null) continue;
 
-            List<Vector2Int> shortestPath = Pathfinding.FindPathAStar(level, passenger.gridCoord.x, passenger.gridCoord.y, frontY);
+            // Only update reachability/path for passengers that exist on the grid
+            int gx = passenger.gridCoord.x;
+            int gy = passenger.gridCoord.y;
+            if (gx < 0 || gy < 0 || gx >= w || gy >= h)
+            {
+                continue;
+            }
+
+            List<Vector2Int> shortestPath = Pathfinding.FindPathAStar(level, gx, gy, frontY);
             bool isReachable = shortestPath != null && shortestPath.Count > 0;
 
             passenger.SetReachable(isReachable);
             passenger.SetPath(shortestPath);
-            //Debug.Log($"[GridSpawner] Passenger ({passenger.gridCoord.x},{passenger.gridCoord.y}) reachable={passenger.isReachable} pathLen={(shortestPath == null ? 0 : shortestPath.Count)}");
         }
     }
 

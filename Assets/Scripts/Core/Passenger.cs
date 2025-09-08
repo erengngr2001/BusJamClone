@@ -13,6 +13,11 @@ public class Passenger : MonoBehaviour
     private bool _interactable = true;
     private Collider _collider;
 
+    public bool IsColorHidden { get; set; } = false;
+    public Material OriginalMaterial { get; private set; }
+    private Material hiddenMaterial;
+    private Renderer bodyRenderer;
+
     public bool IsMoving { get; set; } = false;
     public bool isReachable = true;
     public Vector2Int gridCoord = new Vector2Int(-1, -1);
@@ -46,8 +51,23 @@ public class Passenger : MonoBehaviour
         if (colorManager == null)
             colorManager = gameObject.AddComponent<PassengerColorManager>();
 
+        Transform bodyTransform = transform.Find("Body");
+        if (bodyTransform != null)
+        {
+            bodyRenderer = bodyTransform.GetComponent<Renderer>();
+        }
+        else
+        {
+            // Fallback to any renderer in children if "Body" isn't found.
+            bodyRenderer = GetComponentInChildren<Renderer>();
+        }
+        if (bodyRenderer == null)
+        {
+            Debug.LogError("[Passenger] No renderer found for material swapping!");
+        }
+
         // ensure initial visuals match initial isReachable
-        colorManager.ApplyReachability(isReachable);
+        colorManager.ApplyReachability(isReachable, IsColorHidden);
 
         // Create pointer position action (Vector2 screen pos)
         pointerPosAction = new InputAction(
@@ -120,6 +140,19 @@ public class Passenger : MonoBehaviour
         c.enabled = false; // disable further clicks
     }
 
+    public void InitializeAsHidden(Material originalMat, Material hiddenMat)
+    {
+        IsColorHidden = true;
+        OriginalMaterial = originalMat;
+        hiddenMaterial = hiddenMat;
+
+        // Apply the initial hidden material since it will be unreachable at spawn.
+        if (bodyRenderer != null && hiddenMaterial != null)
+        {
+            bodyRenderer.material = hiddenMaterial;
+        }
+    }
+
     public void SetInteractable(bool v)
     {
         _interactable = v;
@@ -143,16 +176,56 @@ public class Passenger : MonoBehaviour
         if (this.isReachable == isReachable) return;
         this.isReachable = isReachable;
 
-        // delegate visuals to the manager
-        if (colorManager != null)
-            colorManager.ApplyReachability(isReachable);
+        // If this passenger had a hidden material and is now becoming reachable
+        if (IsColorHidden && isReachable)
+        {
+            if (bodyRenderer != null && OriginalMaterial != null)
+            {
+                // assign original material back to the renderer
+                bodyRenderer.material = OriginalMaterial;
+            }
+
+            IsColorHidden = false;
+
+            // refresh color manager to read the material and apply visuals
+            if (colorManager != null)
+            {
+                colorManager.RefreshOriginalColor();
+                colorManager.ApplyReachability(isReachable, false);
+            }
+        }
+        else
+        {
+            // normal path: let color manager handle appearance (still hidden -> manager will early-return)
+            if (colorManager != null)
+                colorManager.ApplyReachability(isReachable, this.IsColorHidden);
+        }
     }
 
-    // Optional: immediate visual set without state-change debounce
     public void SetReachableImmediate(bool isReachable)
     {
         this.isReachable = isReachable;
-        if (colorManager != null) colorManager.ApplyReachability(isReachable);
+
+        // mirror runtime behavior from SetReachable
+        if (IsColorHidden && isReachable)
+        {
+            if (bodyRenderer != null && OriginalMaterial != null)
+            {
+                bodyRenderer.material = OriginalMaterial;
+            }
+            IsColorHidden = false;
+            if (colorManager != null)
+            {
+                colorManager.RefreshOriginalColor();
+                colorManager.ApplyReachability(isReachable, false);
+            }
+        }
+        else
+        {
+            if (colorManager != null)
+                colorManager.ApplyReachability(isReachable, this.IsColorHidden);
+        }
     }
+
 
 }
